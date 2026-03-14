@@ -2,8 +2,7 @@ services:
   - type: web
     name: lifeflow
     env: docker
-    dockerfilePath: ./lifeflow/Dockerfile
-    dockerContext: ./lifeflow
+    dockerfilePath: ./Dockerfile
     plan: free
     envVars:
       - key: NODE_ENV
