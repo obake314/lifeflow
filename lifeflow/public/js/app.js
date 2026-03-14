@@ -317,68 +317,98 @@ function _renderCompareView() {
   const { me, following } = window._cmpData;
   const { visibleCols, myHiddenTags } = window._cmpState;
 
+  const normalFollowing   = following.filter(u => !u.is_official);
+  const officialFollowing = following.filter(u =>  u.is_official);
+
   const myAllTags = [...new Map(me.entries.flatMap(e => e.tags||[]).map(t => [t.id, t])).values()];
 
-  // コントロールパネル
+  // ---- コントロールパネル ----
   const myToggle = `<button class="col-toggle ${visibleCols.has('me') ? 'active' : ''}"
-    onclick="_toggleCol('me')">
-    ${avatar(me, 'avatar-xs')} あなたの記録
-  </button>`;
+    onclick="_toggleCol('me')">${avatar(me, 'avatar-xs')} あなたの記録</button>`;
 
-  const followingToggles = following.map(u =>
-    `<button class="col-toggle ${visibleCols.has(u.id) ? 'active' : ''} ${u.is_official ? 'official' : ''}"
-      onclick="_toggleCol('${u.id}')">
-      ${avatar(u, 'avatar-xs')} ${escHtml(u.username)}
-      ${u.is_official ? '<span class="official-badge">公式</span>' : ''}
-    </button>`
-  ).join('');
-
-  // カテゴリフィルター（除外モード）
-  // チップはデフォルトで「表示中（ON）」、クリックで「非表示（OFF）」
   const catChips = myAllTags.map(t => {
     const isHidden = myHiddenTags.has(t.id);
     return `<button class="cat-chip ${isHidden ? 'chip-off' : 'chip-on'}"
-      onclick="_toggleMyTag(${t.id})"
-      style="--chip-color:${t.color}">
-      ${isHidden ? '✕' : '✓'} ${escHtml(t.name)}
-    </button>`;
+      onclick="_toggleMyTag(${t.id})" style="--chip-color:${t.color}">
+      ${isHidden ? '✕' : '✓'} ${escHtml(t.name)}</button>`;
   }).join('');
 
-  // 除外フィルター適用: 非表示タグがひとつでも含まれるエントリーを隠す
+  const normalToggles = normalFollowing.map(u =>
+    `<button class="col-toggle ${visibleCols.has(u.id) ? 'active' : ''}"
+      onclick="_toggleCol('${u.id}')">
+      ${avatar(u, 'avatar-xs')} ${escHtml(u.username)}</button>`
+  ).join('');
+
+  const officialToggles = officialFollowing.map(u =>
+    `<button class="col-toggle ${visibleCols.has(u.id) ? 'active' : ''} official"
+      onclick="_toggleCol('${u.id}')">
+      ${avatar(u, 'avatar-xs')} ${escHtml(u.username)}
+      <span class="official-badge">公式</span></button>`
+  ).join('');
+
+  // ---- カラム1: 自分 ----
   const myFiltered = myHiddenTags.size === 0
     ? me.entries
     : me.entries.filter(e => !(e.tags||[]).some(t => myHiddenTags.has(t.id)));
 
   const myCol = visibleCols.has('me') ? `
-    <div class="compare-col col-mine">
+    <div class="compare-col col-mine col-flex">
       <div class="compare-col-header">
         ${avatar(me, 'avatar-xs')}
         <span class="col-header-name">あなたの記録</span>
       </div>
       ${myAllTags.length ? `<div class="col-category-filter">${catChips}</div>` : ''}
       <div class="compare-col-entries">
-        ${myFiltered.length
-          ? myFiltered.map(_cmpEntryCard).join('')
+        ${myFiltered.length ? myFiltered.map(_cmpEntryCard).join('') : '<div class="col-empty">エントリーなし</div>'}
+      </div>
+    </div>` : '';
+
+  // ---- カラム2: フォロー中（一般）を時系列で統合 ----
+  const normalEntries = normalFollowing
+    .filter(u => visibleCols.has(u.id))
+    .flatMap(u => u.entries.map(e => ({ ...e, _user: u })))
+    .sort((a, b) => a.entry_date.localeCompare(b.entry_date));
+
+  const normalActiveCount = normalFollowing.filter(u => visibleCols.has(u.id)).length;
+
+  const normalCol = normalFollowing.length ? `
+    <div class="compare-col col-flex">
+      <div class="compare-col-header col-header-normal">
+        <span class="col-header-name" style="color:var(--text)">フォロー中</span>
+        <span class="col-header-count">${normalActiveCount}人</span>
+      </div>
+      <div class="compare-col-entries">
+        ${normalEntries.length
+          ? normalEntries.map(e => _cmpEntryCardWithUser(e, e._user)).join('')
           : '<div class="col-empty">エントリーなし</div>'}
       </div>
     </div>` : '';
 
-  const followingCols = following
+  // ---- カラム3: 公式アカウント（歴史）を時系列で統合 ----
+  const officialEntries = officialFollowing
     .filter(u => visibleCols.has(u.id))
-    .map(u => `
-      <div class="compare-col ${u.is_official ? 'col-official' : ''}">
-        <div class="compare-col-header">
-          ${avatar(u, 'avatar-xs')}
-          <span class="col-header-name">${escHtml(u.username)}</span>
-          ${u.is_official ? '<span class="official-badge">公式</span>' : ''}
-        </div>
-        <div class="compare-col-entries">
-          ${u.entries.length
-            ? u.entries.map(_cmpEntryCard).join('')
-            : '<div class="col-empty">エントリーなし</div>'}
-        </div>
-      </div>`
-    ).join('');
+    .flatMap(u => u.entries.map(e => ({ ...e, _user: u })))
+    .sort((a, b) => a.entry_date.localeCompare(b.entry_date));
+
+  const officialActiveCount = officialFollowing.filter(u => visibleCols.has(u.id)).length;
+
+  const officialCol = officialFollowing.length ? `
+    <div class="compare-col col-official col-flex">
+      <div class="compare-col-header">
+        <span class="col-header-name">公式・歴史</span>
+        <span class="official-badge">公式</span>
+        <span class="col-header-count" style="color:rgba(255,255,255,.5)">${officialActiveCount}件</span>
+      </div>
+      <div class="compare-col-entries">
+        ${officialEntries.length
+          ? officialEntries.map(e => _cmpEntryCardWithUser(e, e._user)).join('')
+          : '<div class="col-empty">エントリーなし</div>'}
+      </div>
+    </div>` : '';
+
+  const totalCols = (visibleCols.has('me') ? 1 : 0)
+    + (normalFollowing.length ? 1 : 0)
+    + (officialFollowing.length ? 1 : 0);
 
   document.getElementById('main').innerHTML = `
     <div class="compare-page">
@@ -399,10 +429,26 @@ function _renderCompareView() {
       </div>
       <div class="compare-columns-wrap">
         ${myCol}
-        ${followingCols}
-        ${!visibleCols.size ? '<div style="margin:auto;color:var(--text-3);font-size:14px;padding:48px">タイムラインを選択してください</div>' : ''}
+        ${normalCol}
+        ${officialCol}
+        ${!totalCols ? '<div style="margin:auto;color:var(--text-3);font-size:14px;padding:48px">タイムラインを選択してください</div>' : ''}
       </div>
     </div>`;
+}
+
+// エントリーカード（ユーザー情報付き：統合カラム用）
+function _cmpEntryCardWithUser(entry, user) {
+  const tagsHtml = (entry.tags||[]).map(t =>
+    `<span class="cmp-tag" style="background:${t.color}14;color:${t.color};border-color:${t.color}30">${escHtml(t.name)}</span>`
+  ).join('');
+  return `<div class="cmp-entry" onclick="showEntryDetail('${entry.id}')">
+    ${entry.image_url ? `<img src="${escHtml(entry.image_url)}" style="width:100%;height:70px;object-fit:cover;border-radius:4px;margin-bottom:6px">` : ''}
+    <div class="cmp-entry-author">${avatar(user, 'avatar-xs')} <span>${escHtml(user.username)}</span></div>
+    <div class="cmp-date">${formatDate(entry.entry_date)}</div>
+    <div class="cmp-title">${escHtml(entry.title)}</div>
+    ${entry.detail ? `<div class="cmp-detail">${escHtml(entry.detail.slice(0, 60))}${entry.detail.length > 60 ? '...' : ''}</div>` : ''}
+    ${tagsHtml ? `<div class="cmp-tags">${tagsHtml}</div>` : ''}
+  </div>`;
 }
 
 function _cmpEntryCard(entry) {
