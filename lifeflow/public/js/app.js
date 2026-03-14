@@ -25,10 +25,18 @@ function renderNav() {
   const el = document.getElementById('navActions');
   if (u) {
     el.innerHTML = `
-      <button class="btn btn-ghost btn-sm" onclick="navigate('profile','${escHtml(u.username)}')">${escHtml(u.username)}</button>
-      <button class="btn btn-ghost btn-sm" onclick="navigate('compare')">比較</button>
       <button class="btn btn-primary btn-sm" onclick="openEntryForm()">+ 追加</button>
-      <button class="btn btn-ghost btn-sm" onclick="logout()">ログアウト</button>
+      <div class="nav-user-menu" id="navUserMenu">
+        <button class="btn btn-ghost btn-sm nav-user-btn" onclick="toggleNavMenu(event)">
+          ${avatar(u, 'avatar-xs')} <span class="nav-username">${escHtml(u.username)}</span> <span class="nav-caret">▾</span>
+        </button>
+        <div class="nav-dropdown hidden" id="navDropdown">
+          <div class="nav-dropdown-item" onclick="navigate('profile','${escHtml(u.username)}');closeNavMenu()">プロフィール</div>
+          <div class="nav-dropdown-item" onclick="navigate('compare');closeNavMenu()">タイムライン比較</div>
+          <div class="nav-dropdown-divider"></div>
+          <div class="nav-dropdown-item nav-dropdown-danger" onclick="logout()">ログアウト</div>
+        </div>
+      </div>
     `;
   } else {
     el.innerHTML = `
@@ -36,6 +44,14 @@ function renderNav() {
       <button class="btn btn-primary btn-sm" onclick="navigate('register')">登録</button>
     `;
   }
+}
+
+function toggleNavMenu(e) {
+  e.stopPropagation();
+  document.getElementById('navDropdown')?.classList.toggle('hidden');
+}
+function closeNavMenu() {
+  document.getElementById('navDropdown')?.classList.add('hidden');
 }
 
 function setupSearch() {
@@ -55,6 +71,7 @@ function setupSearch() {
           `<div class="search-item" onclick="navigate('profile','${escHtml(u.username)}');closeSearch()">
             ${avatar(u, 'avatar-xs')}
             <span style="font-weight:600">${escHtml(u.username)}</span>
+            ${u.is_official ? '<span class="official-badge" style="font-size:9px">公式</span>' : ''}
             ${u.bio ? `<span style="color:var(--text-3);font-size:12px">${escHtml(u.bio.slice(0,30))}</span>` : ''}
           </div>`
         ).join('');
@@ -65,6 +82,7 @@ function setupSearch() {
 
   document.addEventListener('click', e => {
     if (!e.target.closest('.nav-search')) closeSearch();
+    if (!e.target.closest('.nav-user-menu')) closeNavMenu();
   });
 }
 
@@ -189,7 +207,7 @@ async function renderProfile(username) {
       API.getUserEntries(username)
     ]);
 
-    const isSelf      = me?.id === profile.id;
+    const isSelf      = !!(me && (me.id === profile.id || me.username === username));
     const isFollowing = profile.isFollowing;
 
     const followBtn = !isSelf && me
@@ -208,7 +226,7 @@ async function renderProfile(username) {
         <div class="profile-top">
           ${avatar(profile)}
           <div class="profile-info">
-            <div class="profile-username">${escHtml(profile.username)}</div>
+            <div class="profile-username">${escHtml(profile.username)} ${profile.is_official ? '<span class="official-badge">公式</span>' : ''}</div>
             ${profile.bio ? `<div class="profile-bio">${escHtml(profile.bio)}</div>` : ''}
             <div class="profile-stats">
               <div class="stat" onclick="navigate('followers','${escHtml(username)}')">

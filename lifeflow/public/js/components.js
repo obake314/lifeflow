@@ -155,7 +155,7 @@ async function openEntryForm(entry = null) {
     <div class="form-group">
       <label>画像</label>
       <input type="file" id="ef-imageFile" accept="image/*" onchange="previewImage(this)">
-      <input type="text" id="ef-imageUrl" placeholder="または画像URLを入力" value="${escHtml(entry?.image_url || '')}" oninput="previewImageUrl(this.value)" style="margin-top:6px">
+      <input type="hidden" id="ef-imageUrl" value="${escHtml(entry?.image_url || '')}">
       <img id="ef-imagePreview" class="image-preview ${entry?.image_url ? 'show' : ''}" src="${escHtml(entry?.image_url || '')}" alt="">
     </div>
     <div class="form-group">
