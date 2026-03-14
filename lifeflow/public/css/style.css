@@ -1046,13 +1046,35 @@ body {
   border: 1px solid;
 }
 
-/* カラムセクション区切り */
-.col-section-divider {
-  flex: 0 0 2px;
-  background: var(--navy-300);
-  align-self: stretch;
-  margin: 0;
-  opacity: .4;
+/* 3カラムレイアウト: 各カラムが均等に幅を占める */
+.col-flex {
+  flex: 1 1 0;
+  min-width: 260px;
+}
+
+/* フォロー中カラムのヘッダー */
+.col-header-normal {
+  background: var(--surface-3) !important;
+  border-bottom-color: var(--border-strong) !important;
+}
+
+/* カラムヘッダーの件数バッジ */
+.col-header-count {
+  font-size: 11px;
+  color: var(--text-3);
+  margin-left: auto;
+  font-weight: 400;
+}
+
+/* 統合カラム内のユーザー情報 */
+.cmp-entry-author {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-3);
+  margin-bottom: 4px;
 }
 
 /* 画像アップロードエリア */
