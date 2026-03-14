@@ -1,0 +1,295 @@
+// Shared UI components
+
+const VISIBILITY_LABELS = {
+  public:    '公開',
+  users:     'ユーザーのみ',
+  followers: 'フォロワーのみ',
+  specific:  '特定のフォロワー'
+};
+
+function avatar(user, size = '') {
+  const cls = `avatar ${size}`;
+  const letter = (user.username || '?')[0].toUpperCase();
+  if (user.avatar_url) {
+    return `<div class="${cls}"><img src="${escHtml(user.avatar_url)}" alt="" onerror="this.parentElement.innerHTML='${letter}'"></div>`;
+  }
+  return `<div class="${cls}">${letter}</div>`;
+}
+
+function tagHtml(tag) {
+  const c = tag.color || '#264478';
+  return `<span class="tag" style="background:${c}14;color:${c};border-color:${c}30" data-tag-id="${tag.id}">`
+    + `<span class="tag-dot" style="background:${c}"></span>${escHtml(tag.name)}</span>`;
+}
+
+function visibilityBadge(v) {
+  return `<span class="visibility-badge">${VISIBILITY_LABELS[v] || v}</span>`;
+}
+
+function entryCard(entry, isMine = false) {
+  const dateStr  = formatDate(entry.entry_date);
+  const tagsHtml = (entry.tags || []).map(tagHtml).join('');
+
+  return `<div class="entry-card" data-id="${entry.id}" onclick="showEntryDetail('${entry.id}')">
+    ${entry.image_url ? `<img class="entry-image" src="${escHtml(entry.image_url)}" alt="" loading="lazy">` : ''}
+    <div class="entry-body">
+      <div class="entry-meta">
+        <span class="entry-date">${dateStr}</span>
+        ${visibilityBadge(entry.visibility)}
+      </div>
+      <div class="entry-title">${escHtml(entry.title)}</div>
+      ${entry.detail ? `<div class="entry-detail">${escHtml(entry.detail)}</div>` : ''}
+      ${tagsHtml ? `<div class="tags">${tagsHtml}</div>` : ''}
+    </div>
+    <div class="entry-footer">
+      ${entry.username
+        ? `<span class="entry-author" onclick="event.stopPropagation();navigate('profile','${escHtml(entry.username)}')">${avatar({username:entry.username,avatar_url:entry.avatar_url}, 'avatar-xs')} ${escHtml(entry.username)}</span>`
+        : '<span></span>'}
+      ${isMine ? `<div class="entry-actions" onclick="event.stopPropagation()">
+        <button class="btn btn-sm btn-secondary" onclick="editEntry('${entry.id}')">編集</button>
+        <button class="btn btn-sm btn-danger" onclick="deleteEntry('${entry.id}')">削除</button>
+      </div>` : ''}
+    </div>
+  </div>`;
+}
+
+function compareEntryCard(entry) {
+  return `<div class="compare-entry" onclick="showEntryDetail('${entry.id}')">
+    ${entry.image_url ? `<img src="${escHtml(entry.image_url)}" style="width:100%;height:90px;object-fit:cover;border-radius:4px;margin-bottom:8px" loading="lazy">` : ''}
+    <div class="compare-date">${formatDate(entry.entry_date)}</div>
+    <div class="compare-title">${escHtml(entry.title)}</div>
+    ${entry.detail ? `<div class="compare-detail">${escHtml(entry.detail.slice(0, 80))}${entry.detail.length > 80 ? '...' : ''}</div>` : ''}
+    <div class="tags" style="margin-top:6px">${(entry.tags||[]).map(tagHtml).join('')}</div>
+  </div>`;
+}
+
+function tagSelectorHtml(tags, selectedIds = []) {
+  return tags.map(t => {
+    const sel = selectedIds.includes(t.id);
+    return `<label class="tag-option ${sel ? 'selected' : ''}" data-tag-id="${t.id}">`
+      + `<span class="tag-dot" style="background:${t.color}"></span> ${escHtml(t.name)}</label>`;
+  }).join('');
+}
+
+function userListItem(user, actionHtml = '') {
+  return `<li class="user-list-item">
+    ${avatar(user)}
+    <div class="user-list-info">
+      <div class="user-list-name" style="cursor:pointer" onclick="navigate('profile','${escHtml(user.username)}')">${escHtml(user.username)}</div>
+      ${user.bio ? `<div class="user-list-bio">${escHtml(user.bio)}</div>` : ''}
+    </div>
+    ${actionHtml}
+  </li>`;
+}
+
+// ===== ユーティリティ =====
+function escHtml(str) {
+  if (str == null) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function formatDate(str) {
+  if (!str) return '';
+  const d = new Date(str);
+  if (isNaN(d)) return str;
+  return d.toLocaleDateString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric' });
+}
+
+function toast(msg, type = 'info') {
+  const el = document.createElement('div');
+  el.className = `toast toast-${type}`;
+  el.textContent = msg;
+  document.getElementById('toastContainer').appendChild(el);
+  setTimeout(() => el.remove(), 3500);
+}
+
+function showModal(html) {
+  document.getElementById('modalBox').innerHTML = html;
+  document.getElementById('modal').classList.remove('hidden');
+}
+
+function closeModal() {
+  document.getElementById('modal').classList.add('hidden');
+  document.getElementById('modalBox').innerHTML = '';
+}
+
+function loading() {
+  return `<div class="loading"><div class="spinner"></div></div>`;
+}
+
+function setMain(html) {
+  document.getElementById('main').innerHTML = html;
+}
+
+// ===== エントリーフォーム =====
+async function openEntryForm(entry = null) {
+  const tags = await API.getTags();
+  const selectedTagIds = (entry?.tags || []).map(t => t.id);
+
+  const visibilityOptions = Object.entries(VISIBILITY_LABELS).map(([v, l]) =>
+    `<option value="${v}" ${(entry?.visibility ?? 'public') === v ? 'selected' : ''}>${l}</option>`
+  ).join('');
+
+  const dateVal = entry?.entry_date ? entry.entry_date.slice(0, 10) : new Date().toISOString().slice(0, 10);
+
+  showModal(`
+    <button class="modal-close" onclick="closeModal()">&#10005;</button>
+    <h3>${entry ? 'エントリーを編集' : '新しいエントリー'}</h3>
+    <div class="form-group">
+      <label>日付</label>
+      <input type="date" id="ef-date" value="${dateVal}">
+    </div>
+    <div class="form-group">
+      <label>タイトル</label>
+      <input type="text" id="ef-title" placeholder="例：初めての就職" value="${escHtml(entry?.title || '')}">
+    </div>
+    <div class="form-group">
+      <label>詳細</label>
+      <textarea id="ef-detail" placeholder="このとき何があったか...">${escHtml(entry?.detail || '')}</textarea>
+    </div>
+    <div class="form-group">
+      <label>画像</label>
+      <input type="file" id="ef-imageFile" accept="image/*" onchange="previewImage(this)">
+      <input type="text" id="ef-imageUrl" placeholder="または画像URLを入力" value="${escHtml(entry?.image_url || '')}" oninput="previewImageUrl(this.value)" style="margin-top:6px">
+      <img id="ef-imagePreview" class="image-preview ${entry?.image_url ? 'show' : ''}" src="${escHtml(entry?.image_url || '')}" alt="">
+    </div>
+    <div class="form-group">
+      <label>タグ</label>
+      <div class="tag-selector" id="ef-tags">${tagSelectorHtml(tags, selectedTagIds)}</div>
+    </div>
+    <div class="form-group">
+      <label>公開範囲</label>
+      <select id="ef-visibility" onchange="handleVisibilityChange(this.value)">${visibilityOptions}</select>
+    </div>
+    <div class="specific-viewers-section ${entry?.visibility === 'specific' ? 'show' : ''}" id="ef-specificSection">
+      <div class="form-group">
+        <label>閲覧を許可するフォロワー（カンマ区切りのユーザー名）</label>
+        <input type="text" id="ef-specificViewers" placeholder="alice, bob" value="${(entry?.specificViewers||[]).map(u=>u.username).join(', ')}">
+      </div>
+    </div>
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px">
+      <button class="btn btn-secondary" onclick="closeModal()">キャンセル</button>
+      <button class="btn btn-primary" onclick="submitEntryForm('${entry?.id || ''}')">
+        ${entry ? '保存する' : '追加する'}
+      </button>
+    </div>
+  `);
+
+  document.getElementById('ef-tags').addEventListener('click', e => {
+    const opt = e.target.closest('.tag-option');
+    if (!opt) return;
+    opt.classList.toggle('selected');
+    const tag = tags.find(t => t.id == opt.dataset.tagId);
+    if (opt.classList.contains('selected')) {
+      opt.style.borderColor = tag?.color || '';
+      opt.style.color = tag?.color || '';
+    } else {
+      opt.style.borderColor = '';
+      opt.style.color = '';
+    }
+  });
+}
+
+function handleVisibilityChange(v) {
+  document.getElementById('ef-specificSection')?.classList.toggle('show', v === 'specific');
+}
+
+function previewImage(input) {
+  if (!input.files?.[0]) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    const prev = document.getElementById('ef-imagePreview');
+    if (prev) { prev.src = e.target.result; prev.classList.add('show'); }
+  };
+  reader.readAsDataURL(input.files[0]);
+}
+
+function previewImageUrl(url) {
+  const prev = document.getElementById('ef-imagePreview');
+  if (!prev) return;
+  if (url) { prev.src = url; prev.classList.add('show'); }
+  else prev.classList.remove('show');
+}
+
+async function submitEntryForm(existingId) {
+  const title      = document.getElementById('ef-title')?.value.trim();
+  const entry_date = document.getElementById('ef-date')?.value;
+  if (!title || !entry_date) { toast('タイトルと日付は必須です', 'error'); return; }
+
+  let image_url = document.getElementById('ef-imageUrl')?.value.trim() || '';
+  const imageFile = document.getElementById('ef-imageFile')?.files?.[0];
+  if (imageFile) {
+    try { image_url = await API.uploadImage(imageFile); }
+    catch (e) { toast('画像のアップロードに失敗しました: ' + e.message, 'error'); return; }
+  }
+
+  const tag_ids    = [...document.querySelectorAll('#ef-tags .tag-option.selected')].map(el => Number(el.dataset.tagId));
+  const visibility = document.getElementById('ef-visibility')?.value || 'public';
+
+  let specific_viewer_ids = [];
+  if (visibility === 'specific') {
+    const names = (document.getElementById('ef-specificViewers')?.value || '').split(',').map(s => s.trim()).filter(Boolean);
+    try {
+      const resolved = await Promise.all(names.map(n => API.getProfile(n).then(u => u.id).catch(() => null)));
+      specific_viewer_ids = resolved.filter(Boolean);
+    } catch {}
+  }
+
+  const payload = {
+    title,
+    detail: document.getElementById('ef-detail')?.value.trim() || '',
+    image_url, entry_date, visibility, tag_ids, specific_viewer_ids
+  };
+
+  try {
+    if (existingId) { await API.updateEntry(existingId, payload); toast('更新しました', 'success'); }
+    else            { await API.createEntry(payload);             toast('追加しました', 'success'); }
+    closeModal();
+    const { page, username } = window._state;
+    if (page === 'profile') navigate('profile', username);
+    else navigate('feed');
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+async function editEntry(id) {
+  try { await openEntryForm(await API.getEntry(id)); }
+  catch (e) { toast(e.message, 'error'); }
+}
+
+async function deleteEntry(id) {
+  if (!confirm('このエントリーを削除しますか？')) return;
+  try {
+    await API.deleteEntry(id);
+    toast('削除しました', 'success');
+    const { page, username } = window._state;
+    if (page === 'profile') navigate('profile', username);
+    else navigate('feed');
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+async function showEntryDetail(id) {
+  try {
+    const entry  = await API.getEntry(id);
+    const isMine = window._currentUser?.id === entry.user_id;
+    showModal(`
+      <button class="modal-close" onclick="closeModal()">&#10005;</button>
+      ${entry.image_url ? `<img src="${escHtml(entry.image_url)}" style="width:100%;height:200px;object-fit:cover;border-radius:6px;margin-bottom:16px">` : ''}
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+        <span class="entry-date">${formatDate(entry.entry_date)}</span>
+        ${visibilityBadge(entry.visibility)}
+      </div>
+      <h3 style="font-size:20px;font-weight:700;letter-spacing:-0.02em;color:var(--navy-900);margin-bottom:12px">${escHtml(entry.title)}</h3>
+      ${entry.detail ? `<p style="color:var(--text-2);line-height:1.7;font-size:14px;white-space:pre-wrap">${escHtml(entry.detail)}</p>` : ''}
+      <div class="tags" style="margin-top:12px">${(entry.tags||[]).map(tagHtml).join('')}</div>
+      ${isMine ? `<div class="divider"></div><div style="display:flex;gap:8px">
+        <button class="btn btn-secondary btn-sm" onclick="closeModal();editEntry('${entry.id}')">編集</button>
+        <button class="btn btn-danger btn-sm" onclick="closeModal();deleteEntry('${entry.id}')">削除</button>
+      </div>` : ''}
+    `);
+  } catch (e) { toast(e.message, 'error'); }
+}
