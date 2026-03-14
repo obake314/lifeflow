@@ -154,18 +154,9 @@ async function openEntryForm(entry = null) {
     </div>
     <div class="form-group">
       <label>画像</label>
-      <div class="image-upload-area">
-        <button type="button" class="btn btn-secondary btn-sm"
-          onclick="document.getElementById('ef-imageFile').click()">画像を選択</button>
-        <span style="font-size:11px;color:var(--text-3)">JPG/PNG/GIF/WebP・5MBまで</span>
-        <input type="file" id="ef-imageFile" accept="image/*" style="display:none"
-          onchange="previewImage(this)">
-      </div>
+      <input type="file" id="ef-imageFile" accept="image/*" onchange="previewImage(this)">
       <input type="hidden" id="ef-imageUrl" value="${escHtml(entry?.image_url || '')}">
       <img id="ef-imagePreview" class="image-preview ${entry?.image_url ? 'show' : ''}" src="${escHtml(entry?.image_url || '')}" alt="">
-      <button type="button" id="ef-imageClear" class="btn btn-sm btn-danger"
-        style="${entry?.image_url ? '' : 'display:none;'}margin-top:6px"
-        onclick="clearEntryImage()">画像を削除</button>
     </div>
     <div class="form-group">
       <label>タグ</label>
@@ -214,21 +205,8 @@ function previewImage(input) {
   reader.onload = e => {
     const prev = document.getElementById('ef-imagePreview');
     if (prev) { prev.src = e.target.result; prev.classList.add('show'); }
-    const clearBtn = document.getElementById('ef-imageClear');
-    if (clearBtn) clearBtn.style.display = '';
   };
   reader.readAsDataURL(input.files[0]);
-}
-
-function clearEntryImage() {
-  const prev = document.getElementById('ef-imagePreview');
-  const fileInput = document.getElementById('ef-imageFile');
-  const urlInput = document.getElementById('ef-imageUrl');
-  const clearBtn = document.getElementById('ef-imageClear');
-  if (prev) { prev.src = ''; prev.classList.remove('show'); }
-  if (fileInput) fileInput.value = '';
-  if (urlInput) urlInput.value = '';
-  if (clearBtn) clearBtn.style.display = 'none';
 }
 
 function previewImageUrl(url) {

@@ -317,10 +317,6 @@ function _renderCompareView() {
   const { me, following } = window._cmpData;
   const { visibleCols, myHiddenTags } = window._cmpState;
 
-  // 一般ユーザーと公式アカウントを分割
-  const normalFollowing   = following.filter(u => !u.is_official);
-  const officialFollowing = following.filter(u =>  u.is_official);
-
   const myAllTags = [...new Map(me.entries.flatMap(e => e.tags||[]).map(t => [t.id, t])).values()];
 
   // コントロールパネル
@@ -329,22 +325,16 @@ function _renderCompareView() {
     ${avatar(me, 'avatar-xs')} あなたの記録
   </button>`;
 
-  const normalToggles = normalFollowing.map(u =>
-    `<button class="col-toggle ${visibleCols.has(u.id) ? 'active' : ''}"
+  const followingToggles = following.map(u =>
+    `<button class="col-toggle ${visibleCols.has(u.id) ? 'active' : ''} ${u.is_official ? 'official' : ''}"
       onclick="_toggleCol('${u.id}')">
       ${avatar(u, 'avatar-xs')} ${escHtml(u.username)}
-    </button>`
-  ).join('');
-
-  const officialToggles = officialFollowing.map(u =>
-    `<button class="col-toggle ${visibleCols.has(u.id) ? 'active' : ''} official"
-      onclick="_toggleCol('${u.id}')">
-      ${avatar(u, 'avatar-xs')} ${escHtml(u.username)}
-      <span class="official-badge">公式</span>
+      ${u.is_official ? '<span class="official-badge">公式</span>' : ''}
     </button>`
   ).join('');
 
   // カテゴリフィルター（除外モード）
+  // チップはデフォルトで「表示中（ON）」、クリックで「非表示（OFF）」
   const catChips = myAllTags.map(t => {
     const isHidden = myHiddenTags.has(t.id);
     return `<button class="cat-chip ${isHidden ? 'chip-off' : 'chip-on'}"
@@ -354,7 +344,7 @@ function _renderCompareView() {
     </button>`;
   }).join('');
 
-  // 除外フィルター適用
+  // 除外フィルター適用: 非表示タグがひとつでも含まれるエントリーを隠す
   const myFiltered = myHiddenTags.size === 0
     ? me.entries
     : me.entries.filter(e => !(e.tags||[]).some(t => myHiddenTags.has(t.id)));
@@ -373,13 +363,14 @@ function _renderCompareView() {
       </div>
     </div>` : '';
 
-  const normalCols = normalFollowing
+  const followingCols = following
     .filter(u => visibleCols.has(u.id))
     .map(u => `
-      <div class="compare-col">
+      <div class="compare-col ${u.is_official ? 'col-official' : ''}">
         <div class="compare-col-header">
           ${avatar(u, 'avatar-xs')}
           <span class="col-header-name">${escHtml(u.username)}</span>
+          ${u.is_official ? '<span class="official-badge">公式</span>' : ''}
         </div>
         <div class="compare-col-entries">
           ${u.entries.length
@@ -388,31 +379,6 @@ function _renderCompareView() {
         </div>
       </div>`
     ).join('');
-
-  const officialCols = officialFollowing
-    .filter(u => visibleCols.has(u.id))
-    .map(u => `
-      <div class="compare-col col-official">
-        <div class="compare-col-header">
-          ${avatar(u, 'avatar-xs')}
-          <span class="col-header-name">${escHtml(u.username)}</span>
-          <span class="official-badge">公式</span>
-        </div>
-        <div class="compare-col-entries">
-          ${u.entries.length
-            ? u.entries.map(_cmpEntryCard).join('')
-            : '<div class="col-empty">エントリーなし</div>'}
-        </div>
-      </div>`
-    ).join('');
-
-  // 一般ユーザーと公式の間に区切り線を挿入（両方に表示中のカラムがある場合のみ）
-  const visibleNormal   = normalFollowing.filter(u => visibleCols.has(u.id));
-  const visibleOfficial = officialFollowing.filter(u => visibleCols.has(u.id));
-  const divider = (visibleNormal.length || visibleCols.has('me')) && visibleOfficial.length
-    ? '<div class="col-section-divider"></div>' : '';
-
-  const totalVisible = (visibleCols.has('me') ? 1 : 0) + visibleNormal.length + visibleOfficial.length;
 
   document.getElementById('main').innerHTML = `
     <div class="compare-page">
@@ -426,21 +392,15 @@ function _renderCompareView() {
           <span style="font-size:11px;color:var(--text-3);white-space:nowrap">クリックで非表示 →</span>
           <div style="display:flex;gap:4px;flex-wrap:wrap">${catChips}</div>
         </div>` : ''}
-        ${normalFollowing.length ? `<div class="compare-control-row">
+        ${following.length ? `<div class="compare-control-row">
           <span class="control-section-label">比較中</span>
-          ${normalToggles}
-        </div>` : ''}
-        ${officialFollowing.length ? `<div class="compare-control-row">
-          <span class="control-section-label">公式</span>
-          ${officialToggles}
+          ${followingToggles}
         </div>` : ''}
       </div>
       <div class="compare-columns-wrap">
         ${myCol}
-        ${normalCols}
-        ${divider}
-        ${officialCols}
-        ${!totalVisible ? '<div style="margin:auto;color:var(--text-3);font-size:14px;padding:48px">タイムラインを選択してください</div>' : ''}
+        ${followingCols}
+        ${!visibleCols.size ? '<div style="margin:auto;color:var(--text-3);font-size:14px;padding:48px">タイムラインを選択してください</div>' : ''}
       </div>
     </div>`;
 }
