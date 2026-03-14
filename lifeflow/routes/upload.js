@@ -7,10 +7,9 @@ const db = require('../database');
 
 const router = express.Router();
 
-const IS_LAMBDA = !!process.env.AWS_LAMBDA_FUNCTION_NAME || !!process.env.NETLIFY;
-const uploadDir = IS_LAMBDA
-  ? '/tmp/lifeflow-uploads'
-  : path.join(__dirname, '..', 'uploads');
+// 常にbase64変換を使用（Render等のephemeral filesystemでも画像が消えないようにするため）
+const USE_BASE64 = true;
+const uploadDir = '/tmp/lifeflow-uploads';
 
 if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
 
@@ -37,30 +36,21 @@ const upload = multer({
 router.post('/image', authRequired, upload.single('image'), (req, res) => {
   if (!req.file) return res.status(400).json({ error: '画像ファイルを選択してください' });
 
-  if (IS_LAMBDA) {
-    const data = fs.readFileSync(req.file.path);
-    const mime = req.file.mimetype || 'image/jpeg';
-    const url = `data:${mime};base64,${data.toString('base64')}`;
-    fs.unlinkSync(req.file.path);
-    return res.json({ url });
-  }
-
-  res.json({ url: `/uploads/${req.file.filename}` });
+  const data = fs.readFileSync(req.file.path);
+  const mime = req.file.mimetype || 'image/jpeg';
+  const url = `data:${mime};base64,${data.toString('base64')}`;
+  fs.unlinkSync(req.file.path);
+  res.json({ url });
 });
 
 // アバターアップロード（プロフィール用）— アップロード後に avatar_url を DB に反映
 router.post('/avatar', authRequired, upload.single('avatar'), (req, res) => {
   if (!req.file) return res.status(400).json({ error: '画像ファイルを選択してください' });
 
-  let url;
-  if (IS_LAMBDA) {
-    const data = fs.readFileSync(req.file.path);
-    const mime = req.file.mimetype || 'image/jpeg';
-    url = `data:${mime};base64,${data.toString('base64')}`;
-    fs.unlinkSync(req.file.path);
-  } else {
-    url = `/uploads/${req.file.filename}`;
-  }
+  const data = fs.readFileSync(req.file.path);
+  const mime = req.file.mimetype || 'image/jpeg';
+  const url = `data:${mime};base64,${data.toString('base64')}`;
+  fs.unlinkSync(req.file.path);
 
   db.prepare('UPDATE users SET avatar_url = ? WHERE id = ?').run(url, req.user.id);
   res.json({ url });
