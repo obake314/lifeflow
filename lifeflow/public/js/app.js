@@ -114,55 +114,112 @@ function navigate(page, param) {
 
 // ===== ページ =====
 
+window._feedData      = null;
+window._feedHiddenTags = new Set();
+
 async function renderFeed() {
   if (!window._currentUser) { renderLanding(); return; }
 
-  setMain(`<div class="container">
-    <div class="page-header">
-      <h1 class="page-title">タイムラインフィード</h1>
-      <button class="btn btn-primary btn-sm" onclick="openEntryForm()">+ エントリーを追加</button>
-    </div>
-    <div id="tagFilterRow" class="tag-filter-row"></div>
-    <div id="feedEntries">${loading()}</div>
-  </div>`);
+  setMain(`<div style="padding:0">${loading()}</div>`);
 
   try {
-    const [entries, tags] = await Promise.all([API.getFeed(), API.getTags()]);
-    window._allFeedEntries = entries;
-    window._allTags = tags;
-
-    const filterRow = document.getElementById('tagFilterRow');
-    filterRow.innerHTML =
-      `<button class="tag-filter-btn active" data-tag="all" onclick="filterFeed('all')">すべて</button>`
-      + tags.map(t =>
-        `<button class="tag-filter-btn" data-tag="${t.id}" onclick="filterFeed(${t.id})">`
-        + `<span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:${t.color};margin-right:5px"></span>${escHtml(t.name)}</button>`
-      ).join('');
-
-    renderFeedEntries(entries);
+    const data = await API.compareAll();
+    window._feedData      = data;
+    window._feedHiddenTags = new Set();
+    _renderFeedView();
   } catch (e) {
-    document.getElementById('feedEntries').innerHTML =
-      `<div class="empty"><div class="empty-icon"></div><p>${escHtml(e.message)}</p></div>`;
+    setMain(`<div class="container"><div class="empty"><div class="empty-icon"></div><p>${escHtml(e.message)}</p></div></div>`);
   }
 }
 
-function filterFeed(tagId) {
-  document.querySelectorAll('.tag-filter-btn').forEach(b => b.classList.toggle('active', b.dataset.tag == tagId));
-  const entries = window._allFeedEntries || [];
-  renderFeedEntries(tagId === 'all' ? entries : entries.filter(e => (e.tags||[]).some(t => t.id == tagId)));
+function _renderFeedView() {
+  const { me, following } = window._feedData;
+  const hiddenTags = window._feedHiddenTags;
+
+  const normalFollowing   = following.filter(u => !u.is_official);
+  const officialFollowing = following.filter(u =>  u.is_official);
+
+  const myAllTags = [...new Map(me.entries.flatMap(e => e.tags||[]).map(t => [t.id, t])).values()];
+
+  // カテゴリチップ（左カラムフィルター）
+  const catChips = myAllTags.map(t => {
+    const off = hiddenTags.has(t.id);
+    return `<button class="cat-chip ${off ? 'chip-off' : 'chip-on'}"
+      onclick="_feedToggleTag(${t.id})" style="--chip-color:${t.color}">
+      ${off ? '✕' : '✓'} ${escHtml(t.name)}</button>`;
+  }).join('');
+
+  // カラム1: 自分の記録
+  const myFiltered = hiddenTags.size === 0
+    ? me.entries
+    : me.entries.filter(e => !(e.tags||[]).some(t => hiddenTags.has(t.id)));
+
+  const myCol = `
+    <div class="compare-col col-mine col-flex">
+      <div class="compare-col-header">
+        ${avatar(me, 'avatar-xs')}
+        <span class="col-header-name">あなたの記録</span>
+        <button class="btn btn-primary btn-sm" style="margin-left:auto;font-size:11px;padding:4px 10px" onclick="openEntryForm()">+ 追加</button>
+      </div>
+      ${myAllTags.length ? `<div class="col-category-filter" style="padding:8px 12px 0;display:flex;gap:4px;flex-wrap:wrap">${catChips}</div>` : ''}
+      <div class="compare-col-entries">
+        ${myFiltered.length
+          ? myFiltered.map(_cmpEntryCard).join('')
+          : '<div class="col-empty">エントリーがありません</div>'}
+      </div>
+    </div>`;
+
+  // カラム2: フォロー中（一般ユーザー）を時系列統合
+  const normalEntries = normalFollowing
+    .flatMap(u => u.entries.map(e => ({ ...e, _user: u })))
+    .sort((a, b) => a.entry_date.localeCompare(b.entry_date));
+
+  const normalCol = `
+    <div class="compare-col col-flex">
+      <div class="compare-col-header col-header-normal">
+        <span class="col-header-name" style="color:var(--text)">フォロー中</span>
+        <span class="col-header-count">${normalFollowing.length}人</span>
+      </div>
+      <div class="compare-col-entries">
+        ${normalEntries.length
+          ? normalEntries.map(e => _cmpEntryCardWithUser(e, e._user)).join('')
+          : '<div class="col-empty">フォロー中のユーザーがいないか、エントリーがありません</div>'}
+      </div>
+    </div>`;
+
+  // カラム3: 公式アカウントを時系列統合
+  const officialEntries = officialFollowing
+    .flatMap(u => u.entries.map(e => ({ ...e, _user: u })))
+    .sort((a, b) => a.entry_date.localeCompare(b.entry_date));
+
+  const officialCol = `
+    <div class="compare-col col-official col-flex">
+      <div class="compare-col-header">
+        <span class="col-header-name">公式・歴史</span>
+        <span class="official-badge">公式</span>
+        <span class="col-header-count" style="color:rgba(255,255,255,.5)">${officialFollowing.length}件</span>
+      </div>
+      <div class="compare-col-entries">
+        ${officialEntries.length
+          ? officialEntries.map(e => _cmpEntryCardWithUser(e, e._user)).join('')
+          : '<div class="col-empty">公式アカウントをフォローしていません</div>'}
+      </div>
+    </div>`;
+
+  setMain(`
+    <div class="compare-page">
+      <div class="compare-columns-wrap">
+        ${myCol}
+        ${normalCol}
+        ${officialCol}
+      </div>
+    </div>`);
 }
 
-function renderFeedEntries(entries) {
-  const el = document.getElementById('feedEntries');
-  if (!el) return;
-  const u = window._currentUser;
-  if (!entries.length) {
-    el.innerHTML = `<div class="empty"><div class="empty-icon"></div><h3>まだエントリーがありません</h3><p>フォローするか、最初のエントリーを追加してみましょう。</p></div>`;
-    return;
-  }
-  el.innerHTML = `<div class="timeline">${entries.map(e =>
-    `<div class="timeline-entry">${entryCard(e, e.user_id === u?.id)}</div>`
-  ).join('')}</div>`;
+function _feedToggleTag(tagId) {
+  if (window._feedHiddenTags.has(tagId)) window._feedHiddenTags.delete(tagId);
+  else window._feedHiddenTags.add(tagId);
+  _renderFeedView();
 }
 
 function renderLanding() {
