@@ -422,13 +422,9 @@ function _renderCompareView() {
           <span style="font-size:11px;color:var(--text-3);white-space:nowrap">クリックで非表示 →</span>
           <div style="display:flex;gap:4px;flex-wrap:wrap">${catChips}</div>
         </div>` : ''}
-        ${normalFollowing.length ? `<div class="compare-control-row">
+        ${following.length ? `<div class="compare-control-row">
           <span class="control-section-label">比較中</span>
-          ${normalToggles}
-        </div>` : ''}
-        ${officialFollowing.length ? `<div class="compare-control-row">
-          <span class="control-section-label">公式</span>
-          ${officialToggles}
+          ${followingToggles}
         </div>` : ''}
       </div>
       <div class="compare-columns-wrap">
