@@ -39,6 +39,7 @@
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
+.hidden { display: none !important; }
 
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
@@ -1043,6 +1044,23 @@ body {
   padding: 1px 6px;
   border-radius: 3px;
   border: 1px solid;
+}
+
+/* カラムセクション区切り */
+.col-section-divider {
+  flex: 0 0 2px;
+  background: var(--navy-300);
+  align-self: stretch;
+  margin: 0;
+  opacity: .4;
+}
+
+/* 画像アップロードエリア */
+.image-upload-area {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
 }
 
 /* 空状態（カラム内） */
