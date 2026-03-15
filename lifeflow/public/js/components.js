@@ -134,11 +134,13 @@ function toast(msg, type = 'info') {
 function showModal(html) {
   document.getElementById('modalBox').innerHTML = html;
   document.getElementById('modal').classList.remove('hidden');
+  document.body.style.overflow = 'hidden';
 }
 
 function closeModal() {
   document.getElementById('modal').classList.add('hidden');
   document.getElementById('modalBox').innerHTML = '';
+  document.body.style.overflow = '';
 }
 
 function loading() {
