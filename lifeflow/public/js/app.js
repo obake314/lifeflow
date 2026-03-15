@@ -127,7 +127,7 @@ function openFeedTagModal() {
         <span class="tag-dot" style="background:${t.color}"></span>
         <span>${escHtml(t.name)}</span>
       </label>`).join('')}
-    <button class="btn btn-primary" style="margin-top:14px;width:100%" onclick="closeModal()">閉じる</button>
+    <button class="btn btn-primary" style="margin-top:14px;width:100%" onclick="closeModal();_renderFeedView()">閉じる</button>
   `);
 }
 
@@ -146,7 +146,7 @@ function openFeedFollowerModal() {
         <span>${escHtml(u.username)}</span>
         ${u.is_official ? '<span class="official-badge" style="font-size:9px">公式</span>' : ''}
       </label>`).join('')}
-    <button class="btn btn-primary" style="margin-top:14px;width:100%" onclick="closeModal()">閉じる</button>
+    <button class="btn btn-primary" style="margin-top:14px;width:100%" onclick="closeModal();_renderFeedView()">閉じる</button>
   `);
 }
 
@@ -154,14 +154,12 @@ function _feedToggleTag(tagId) {
   const id = Number(tagId);
   if (window._feedHiddenTags.has(id)) window._feedHiddenTags.delete(id);
   else window._feedHiddenTags.add(id);
-  _renderFeedView();
 }
 
 function _feedToggleFollower(userId) {
   const id = Number(userId);
   if (window._feedHiddenFollowers.has(id)) window._feedHiddenFollowers.delete(id);
   else window._feedHiddenFollowers.add(id);
-  _renderFeedView();
 }
 
 // フォロワー史用スリムカード（ユーザー名・タイトル・画像のみ）
@@ -207,69 +205,35 @@ function _renderFeedView() {
   const tagBtnLabel  = hiddenTags.size      ? `絞り込み中 (${myAllTags.length - hiddenTags.size}/${myAllTags.length})` : '絞り込み';
   const folBtnLabel  = hiddenFollowers.size ? `絞り込み中 (${normalFollowing.length - hiddenFollowers.size}/${normalFollowing.length})` : '絞り込み';
 
-  const frozenRows = allYears.map(year => `
-    <div class="feed-frozen-row" data-year="${year}">
-      <div class="feed-frozen-year">${year}</div>
-      <div class="feed-frozen-mine">${(myByYear[year]||[]).map(_cmpEntryCard).join('')}</div>
-    </div>`).join('');
-
-  const liveRows = allYears.map(year => `
-    <div class="feed-live-row" data-year="${year}">
-      ${(folByYear[year]||[]).map(e => _cmpFollowerCardSlim(e, e._user)).join('')}
+  const rows = allYears.map(year => `
+    <div class="feed-year-row">
+      <div class="feed-left">
+        <div class="feed-year-lbl">${year}</div>
+        <div class="feed-year-mine">${(myByYear[year]||[]).map(_cmpEntryCard).join('')}</div>
+      </div>
+      <div class="feed-year-fol">${(folByYear[year]||[]).map(e => _cmpFollowerCardSlim(e, e._user)).join('')}</div>
     </div>`).join('');
 
   setMain(`
     <div class="compare-page feed-page">
-      <div class="feed-panels">
-        <div class="feed-frozen">
-          <div class="feed-frozen-head">
-            <div class="feed-frozen-year-cell"></div>
-            <div class="feed-frozen-mine-cell">
+      <div class="feed-scroll">
+        <div class="feed-head">
+          <div class="feed-head-left">
+            <div class="feed-head-year"></div>
+            <div class="feed-head-mine">
               ${avatar(me, 'avatar-xs')}
               <span>自分史</span>
               ${myAllTags.length ? `<button class="feed-filter-btn" onclick="openFeedTagModal()">${tagBtnLabel}</button>` : ''}
             </div>
           </div>
-          <div class="feed-frozen-body" id="feedFrozenBody">
-            ${frozenRows || '<p style="padding:32px 8px;text-align:center;font-size:12px;color:var(--text-3)">エントリーなし</p>'}
-          </div>
-        </div>
-        <div class="feed-live">
-          <div class="feed-live-head">
+          <div class="feed-head-fol">
             <span>フォロワー史</span>
             ${normalFollowing.length ? `<button class="feed-filter-btn feed-filter-btn-light" onclick="openFeedFollowerModal()">${folBtnLabel}</button>` : ''}
           </div>
-          <div class="feed-live-body" id="feedLiveBody">
-            ${liveRows || '<p style="padding:32px;text-align:center;font-size:12px;color:var(--text-3)">エントリーなし</p>'}
-          </div>
         </div>
+        ${rows || '<p style="padding:32px;text-align:center;color:var(--text-3)">エントリーがありません</p>'}
       </div>
     </div>`);
-
-  requestAnimationFrame(_setupFeedLayout);
-}
-
-function _setupFeedLayout() {
-  const frozenBody = document.getElementById('feedFrozenBody');
-  const liveBody   = document.getElementById('feedLiveBody');
-  if (!frozenBody || !liveBody) return;
-
-  // 各年の行の高さを揃える
-  const frozenRows = frozenBody.querySelectorAll('.feed-frozen-row');
-  const liveRows   = liveBody.querySelectorAll('.feed-live-row');
-  frozenRows.forEach((fr, i) => {
-    const lr = liveRows[i];
-    if (!lr) return;
-    fr.style.minHeight = '';
-    lr.style.minHeight = '';
-    const h = Math.max(fr.offsetHeight, lr.offsetHeight);
-    fr.style.minHeight = h + 'px';
-    lr.style.minHeight = h + 'px';
-  });
-
-  // 縦スクロール同期
-  liveBody.addEventListener('scroll', () => { frozenBody.scrollTop = liveBody.scrollTop; });
-  frozenBody.addEventListener('scroll', () => { liveBody.scrollTop = frozenBody.scrollTop; });
 }
 
 function renderLanding() {

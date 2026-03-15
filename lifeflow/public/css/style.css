@@ -1104,35 +1104,40 @@ body {
   overflow: hidden;
 }
 
-/* 2パネルレイアウト */
-.feed-panels {
-  display: flex;
+/* シングルスクロールコンテナ */
+.feed-scroll {
   flex: 1;
-  overflow: hidden;
+  min-height: 0;
+  overflow: auto;
 }
 
-/* 左固定パネル: 年ラベル + 自分史 */
-.feed-frozen {
-  width: 224px;
-  flex-shrink: 0;
+/* ヘッダー行: 縦にstickyで固定 */
+.feed-head {
+  position: sticky;
+  top: 0;
+  z-index: 20;
   display: flex;
-  flex-direction: column;
-  border-right: 2px solid var(--border);
-  overflow: hidden;
-}
-.feed-frozen-head {
-  display: flex;
-  flex-shrink: 0;
   border-bottom: 2px solid var(--border);
   background: var(--surface);
 }
-.feed-frozen-year-cell {
+
+/* ヘッダーの左2列（年+自分史）: 横にもstickyで固定 */
+.feed-head-left {
+  position: sticky;
+  left: 0;
+  z-index: 21;
+  display: flex;
+  width: 224px;
+  flex-shrink: 0;
+  background: var(--surface);
+}
+.feed-head-year {
   width: 44px;
   flex-shrink: 0;
   background: var(--surface-3);
   border-right: 1px solid var(--border);
 }
-.feed-frozen-mine-cell {
+.feed-head-mine {
   flex: 1;
   padding: 8px 10px;
   display: flex;
@@ -1145,47 +1150,37 @@ body {
   white-space: nowrap;
   overflow: visible;
 }
-.feed-frozen-body {
+.feed-head-fol {
   flex: 1;
-  overflow-y: scroll;
-  overflow-x: hidden;
-  scrollbar-width: none;
-}
-.feed-frozen-body::-webkit-scrollbar { display: none; }
-
-/* 右スクロールパネル: フォロワー史 */
-.feed-live {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  min-width: 0;
-}
-.feed-live-head {
-  flex-shrink: 0;
   padding: 8px 10px;
   display: flex;
   align-items: center;
   gap: 6px;
   font-size: 13px;
   font-weight: 700;
-  border-bottom: 2px solid var(--border);
-  background: var(--surface);
   white-space: nowrap;
-}
-.feed-live-body {
-  flex: 1;
-  overflow-y: auto;
-  overflow-x: auto;
-  min-width: 0;
+  min-width: 200px;
+  border-left: 1px solid var(--border);
 }
 
-/* 左パネルの年ごと行 */
-.feed-frozen-row {
+/* 年ごとの行 */
+.feed-year-row {
   display: flex;
   border-bottom: 1px solid var(--border);
+  min-height: 28px;
 }
-.feed-frozen-year {
+
+/* 左2列（年+自分史）: 1つのstickyブロックにまとめて安定させる */
+.feed-left {
+  position: sticky;
+  left: 0;
+  z-index: 5;
+  display: flex;
+  width: 224px;
+  flex-shrink: 0;
+  background: var(--navy-50);
+}
+.feed-year-lbl {
   width: 44px;
   flex-shrink: 0;
   display: flex;
@@ -1200,23 +1195,21 @@ body {
   text-align: center;
   word-break: break-all;
 }
-.feed-frozen-mine {
+.feed-year-mine {
   flex: 1;
   padding: 6px 8px;
   display: flex;
   flex-direction: column;
   gap: 6px;
-  background: var(--navy-50);
+  border-right: 1px solid var(--border);
   min-width: 0;
 }
-
-/* 右パネルの年ごと行 */
-.feed-live-row {
+.feed-year-fol {
+  flex: 1;
   padding: 6px 8px;
   display: flex;
   flex-direction: column;
   gap: 6px;
-  border-bottom: 1px solid var(--border);
   min-width: 200px;
 }
 
