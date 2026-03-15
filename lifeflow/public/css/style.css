@@ -1129,7 +1129,8 @@ body {
   top: 0;
   z-index: 20;
   display: grid;
-  grid-template-columns: 44px minmax(160px, 1fr) minmax(160px, 1fr);
+  grid-template-columns: 44px 1fr 1fr;
+  min-width: 480px;
   border-bottom: 2px solid var(--border);
   background: var(--surface);
 }
@@ -1162,6 +1163,13 @@ body {
   font-family: inherit;
 }
 .feed-tag-btn:hover { background: rgba(255,255,255,.22); }
+/* フォロワー史ヘッダー（ライト背景）用ボタン */
+.feed-fol-btn {
+  border-color: var(--border) !important;
+  background: var(--surface) !important;
+  color: var(--text) !important;
+}
+.feed-fol-btn:hover { background: var(--surface-3) !important; }
 .feed-tag-menu {
   position: absolute;
   top: calc(100% + 6px);
@@ -1189,7 +1197,8 @@ body {
 /* 年ごとの行: [年ラベル44px][自分史 min160px][フォロワー史 min160px] */
 .feed-year-row {
   display: grid;
-  grid-template-columns: 44px minmax(160px, 1fr) minmax(160px, 1fr);
+  grid-template-columns: 44px 1fr 1fr;
+  min-width: 480px;
   border-bottom: 1px solid var(--border);
   min-height: 28px;
 }
