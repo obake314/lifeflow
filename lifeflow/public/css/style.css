@@ -793,13 +793,6 @@ body {
   border-radius: var(--radius);
   padding: 18px;
 }
-.feature-line {
-  width: 24px;
-  height: 3px;
-  background: var(--primary);
-  border-radius: 2px;
-  margin-bottom: 12px;
-}
 .feature-title { font-size: 13px; font-weight: 700; color: var(--navy-900); margin-bottom: 6px; letter-spacing: -0.01em; }
 .feature-desc  { font-size: 12px; color: var(--text-2); line-height: 1.55; }
 
