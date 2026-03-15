@@ -585,6 +585,7 @@ body {
   justify-content: center;
   padding: 16px;
 }
+.hidden { display: none !important; }
 .modal.hidden { display: none; }
 .modal-backdrop {
   position: absolute;
@@ -1111,20 +1112,13 @@ body {
   .profile-stats { justify-content: center; }
   .modal-box { padding: 20px; }
 
-  /* フィード2カラム: スマホでは縦積み */
-  .feed-two-col {
-    flex-direction: column;
-    overflow-y: auto;
-    overflow-x: hidden;
-  }
+  /* フィード2カラム: スマホでも横並びを維持 */
   .feed-col {
-    flex: none;
+    flex: 1 1 50%;
     min-width: 0;
-    width: 100%;
-    border-right: none;
-    border-bottom: 2px solid var(--border);
-    overflow-y: visible;
-    max-height: none;
   }
-  .compare-page { height: auto; overflow: visible; }
+  .compare-col-header { padding: 10px 8px; gap: 5px; }
+  .col-header-name { font-size: 11px; }
+  .compare-col-entries .cmp-entry { padding: 8px; }
+  .cmp-entry-title { font-size: 12px; }
 }
