@@ -175,7 +175,7 @@ async function openEntryForm(entry = null) {
     </div>
     <div class="form-row">
       <label>詳細</label>
-      <textarea id="ef-detail" placeholder="このとき何があったか...">${escHtml(entry?.detail || '')}</textarea>
+      <textarea id="ef-detail" rows="5" placeholder="このとき何があったか...">${escHtml(entry?.detail || '')}</textarea>
     </div>
     <div class="form-row">
       <label>画像</label>
