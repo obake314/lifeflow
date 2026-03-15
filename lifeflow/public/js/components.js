@@ -63,12 +63,35 @@ function compareEntryCard(entry) {
   </div>`;
 }
 
-function tagSelectorHtml(tags, selectedIds = []) {
-  return tags.map(t => {
-    const sel = selectedIds.includes(t.id);
-    return `<label class="tag-option ${sel ? 'selected' : ''}" data-tag-id="${t.id}">`
-      + `<span class="tag-dot" style="background:${t.color}"></span> ${escHtml(t.name)}</label>`;
+function tagDropdownHtml(tags, selectedIds = []) {
+  const selectedNames = tags.filter(t => selectedIds.includes(t.id)).map(t => escHtml(t.name));
+  const label = selectedNames.length ? selectedNames.join(', ') : 'タグを選択...';
+  const items = tags.map(t => {
+    const checked = selectedIds.includes(t.id);
+    return `<label class="tag-dd-item" data-tag-id="${t.id}">
+      <input type="checkbox" ${checked ? 'checked' : ''} onchange="_updateTagDdLabel()">
+      <span class="tag-dot" style="background:${t.color}"></span>
+      ${escHtml(t.name)}
+    </label>`;
   }).join('');
+  return `<div class="tag-dropdown">
+    <button type="button" class="tag-dd-btn" onclick="_toggleTagDd(event)">
+      <span id="ef-tags-label">${label}</span><span class="tag-dd-caret">▾</span>
+    </button>
+    <div class="tag-dd-menu hidden" id="ef-tags-menu">${items || '<span class="tag-dd-empty">タグがありません</span>'}</div>
+  </div>`;
+}
+
+function _toggleTagDd(e) {
+  e.stopPropagation();
+  document.getElementById('ef-tags-menu')?.classList.toggle('hidden');
+}
+
+function _updateTagDdLabel() {
+  const checked = [...document.querySelectorAll('#ef-tags-menu .tag-dd-item input:checked')];
+  const all = [...document.querySelectorAll('#ef-tags-menu .tag-dd-item')];
+  const names = checked.map(el => el.closest('.tag-dd-item').querySelector('.tag-dot').nextSibling.textContent.trim());
+  document.getElementById('ef-tags-label').textContent = names.length ? names.join(', ') : 'タグを選択...';
 }
 
 function userListItem(user, actionHtml = '') {
@@ -160,7 +183,7 @@ async function openEntryForm(entry = null) {
     </div>
     <div class="form-group">
       <label>タグ</label>
-      <div class="tag-selector" id="ef-tags">${tagSelectorHtml(tags, selectedTagIds)}</div>
+      ${tagDropdownHtml(tags, selectedTagIds)}
     </div>
     <div class="form-group">
       <label>公開範囲</label>
@@ -180,19 +203,6 @@ async function openEntryForm(entry = null) {
     </div>
   `);
 
-  document.getElementById('ef-tags').addEventListener('click', e => {
-    const opt = e.target.closest('.tag-option');
-    if (!opt) return;
-    opt.classList.toggle('selected');
-    const tag = tags.find(t => t.id == opt.dataset.tagId);
-    if (opt.classList.contains('selected')) {
-      opt.style.borderColor = tag?.color || '';
-      opt.style.color = tag?.color || '';
-    } else {
-      opt.style.borderColor = '';
-      opt.style.color = '';
-    }
-  });
 }
 
 function handleVisibilityChange(v) {
@@ -228,7 +238,7 @@ async function submitEntryForm(existingId) {
     catch (e) { toast('画像のアップロードに失敗しました: ' + e.message, 'error'); return; }
   }
 
-  const tag_ids    = [...document.querySelectorAll('#ef-tags .tag-option.selected')].map(el => Number(el.dataset.tagId));
+  const tag_ids    = [...document.querySelectorAll('#ef-tags-menu .tag-dd-item input:checked')].map(el => Number(el.closest('.tag-dd-item').dataset.tagId));
   const visibility = document.getElementById('ef-visibility')?.value || 'public';
 
   let specific_viewer_ids = [];
