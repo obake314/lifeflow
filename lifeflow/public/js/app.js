@@ -27,6 +27,11 @@ function renderNav() {
   if (u) {
     el.innerHTML = `
       <button class="btn btn-primary btn-sm" onclick="openEntryForm()">+ 追加</button>
+      <button class="nav-icon-btn" onclick="navigate('search')" title="ユーザー検索">
+        <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <circle cx="8.5" cy="8.5" r="5.5"/><line x1="13" y1="13" x2="18" y2="18"/>
+        </svg>
+      </button>
       <div class="nav-user-menu" id="navUserMenu">
         <button class="btn btn-ghost btn-sm nav-user-btn" onclick="toggleNavMenu(event)">
           ${avatar(u, 'avatar-xs')} <span class="nav-username">${escHtml(u.username)}</span> <span class="nav-caret">▾</span>
@@ -60,49 +65,7 @@ document.addEventListener('click', () => {
   document.getElementById('ef-tags-menu')?.classList.add('hidden');
 });
 
-function setupSearch() {
-  const input    = document.getElementById('searchInput');
-  const dropdown = document.getElementById('searchResults');
-  let debounce;
-
-  input.addEventListener('keydown', e => {
-    if (e.key === 'Enter') {
-      const q = input.value.trim();
-      if (q) { navigate('search', q); closeSearch(); }
-    }
-  });
-
-  input.addEventListener('input', () => {
-    clearTimeout(debounce);
-    const q = input.value.trim();
-    if (!q) { dropdown.classList.add('hidden'); return; }
-    debounce = setTimeout(async () => {
-      try {
-        const users = await API.searchUsers(q);
-        if (!users.length) { dropdown.classList.add('hidden'); return; }
-        dropdown.innerHTML = users.map(u =>
-          `<div class="search-item" onclick="navigate('profile','${escHtml(u.username)}');closeSearch()">
-            ${avatar(u, 'avatar-xs')}
-            <span style="font-weight:600">${escHtml(u.username)}</span>
-            ${u.is_official ? '<span class="official-badge" style="font-size:9px">公式</span>' : ''}
-            ${u.bio ? `<span style="color:var(--text-3);font-size:12px">${escHtml(u.bio.slice(0,30))}</span>` : ''}
-          </div>`
-        ).join('');
-        dropdown.classList.remove('hidden');
-      } catch {}
-    }, 300);
-  });
-
-  document.addEventListener('click', e => {
-    if (!e.target.closest('.nav-search')) closeSearch();
-    if (!e.target.closest('.nav-user-menu')) closeNavMenu();
-  });
-}
-
-function closeSearch() {
-  document.getElementById('searchResults').classList.add('hidden');
-  document.getElementById('searchInput').value = '';
-}
+function setupSearch() {}
 
 function logout() {
   localStorage.removeItem('lf_token');
@@ -178,7 +141,7 @@ function openFeedFollowerModal() {
     <h3 style="margin-bottom:12px">フォロワーで絞り込み</h3>
     ${normalFollowing.map(u => `
       <label class="filter-modal-item">
-        <input type="checkbox" ${!hiddenFollowers.has(u.id) ? 'checked' : ''}
+        <input type="checkbox" ${!hiddenFollowers.has(Number(u.id)) ? 'checked' : ''}
           onchange="_feedToggleFollower(${u.id})">
         ${avatar(u, 'avatar-xs')}
         <span>${escHtml(u.username)}</span>
@@ -227,7 +190,7 @@ function _renderFeedView() {
     : me.entries.filter(e => !(e.tags||[]).some(t => hiddenTags.has(t.id)));
 
   const followerEntries = normalFollowing
-    .filter(u => !hiddenFollowers.has(u.id))
+    .filter(u => !hiddenFollowers.has(Number(u.id)))
     .flatMap(u => u.entries.map(e => ({ ...e, _user: u })));
 
   // 年ごとにグループ化して横並び比較
