@@ -183,7 +183,7 @@ function _cmpFollowerCardSlim(entry, user) {
   const cls = user.is_official ? 'cmp-entry cmp-entry--official' : 'cmp-entry';
   return `<div class="${cls}" data-uid="${user.id}" onclick="showEntryDetail('${entry.id}')">
     <div class="cmp-entry-body">
-      <div class="cmp-entry-author">${avatar(user, 'avatar-xs')} <span>${escHtml(user.username)}</span>${user.is_official ? ' <span class="official-badge" style="font-size:9px">公式</span>' : ''}</div>
+      <div class="cmp-entry-author">${avatar(user, 'avatar-xs')} <span>${escHtml(user.username)}</span></div>
       <div class="cmp-title">${escHtml(entry.title)}</div>
     </div>
     ${entry.image_url ? `<img src="${escHtml(entry.image_url)}" class="cmp-entry-thumb" alt="">` : ''}

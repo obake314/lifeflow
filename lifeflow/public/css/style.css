@@ -40,8 +40,14 @@
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
+:root {
+  --accent-start: #FFC2D2;
+  --accent-end:   #8397FE;
+  --accent-grad:  linear-gradient(90deg, var(--accent-start), var(--accent-end));
+}
+
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+  font-family: 'LINESeedJP_A', 'LINE Seed JP', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
   background: var(--surface-2);
   color: var(--text);
   min-height: 100vh;
@@ -55,7 +61,9 @@ body {
   position: fixed;
   top: 0; left: 0; right: 0;
   height: var(--nav-h);
-  background: var(--navy-800);
+  background: #fff;
+  border-bottom: 1px solid var(--border);
+  box-shadow: 0 1px 6px rgba(0,0,0,.06);
   display: flex;
   align-items: center;
   padding: 0 28px;
@@ -72,16 +80,19 @@ body {
 }
 .brand-wordmark {
   font-size: 17px;
-  font-weight: 700;
+  font-weight: 800;
   letter-spacing: 0.06em;
-  color: #fff;
   text-transform: uppercase;
+  background: var(--accent-grad);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
 }
 .brand-dot {
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: var(--navy-300);
+  background: var(--accent-grad);
   display: inline-block;
   margin-bottom: 1px;
 }
@@ -97,11 +108,11 @@ body {
   border-radius: var(--radius-sm);
   border: none;
   background: transparent;
-  color: var(--navy-200);
+  color: var(--text-2);
   cursor: pointer;
   transition: background .15s, color .15s;
 }
-.nav-icon-btn:hover { background: var(--navy-700); color: #fff; }
+.nav-icon-btn:hover { background: var(--surface-3); color: var(--text); }
 
 /* ナビ ユーザーメニュー */
 .nav-user-menu {
@@ -170,11 +181,11 @@ body {
   letter-spacing: 0.01em;
 }
 .btn-primary {
-  background: var(--primary);
+  background: var(--accent-grad);
   color: #fff;
-  border-color: var(--primary);
+  border-color: transparent;
 }
-.btn-primary:hover { background: var(--primary-dark); border-color: var(--primary-dark); }
+.btn-primary:hover { filter: brightness(.93); }
 
 .btn-secondary {
   background: var(--surface);
@@ -186,8 +197,8 @@ body {
 .btn-danger { background: var(--danger); color: #fff; border-color: var(--danger); }
 .btn-danger:hover { filter: brightness(.9); }
 
-.btn-ghost { background: transparent; color: var(--navy-200); border-color: transparent; }
-.btn-ghost:hover { color: #fff; background: var(--navy-600); }
+.btn-ghost { background: transparent; color: var(--text-2); border-color: transparent; }
+.btn-ghost:hover { color: var(--text); background: var(--surface-3); }
 
 .btn-outline {
   background: transparent;
@@ -440,15 +451,13 @@ body {
 .tag-dd-item {
   display: flex;
   align-items: center;
-  min-width: max-content;
+  width: 100%;
   gap: 8px;
-  padding: 8px 12px;
+  padding: 7px 12px;
   cursor: pointer;
   font-size: 13px;
   color: var(--text);
   box-sizing: border-box;
-  white-space: nowrap;
-  flex-wrap: nowrap;
 }
 .tag-dd-item:hover { background: var(--surface-3); }
 .tag-dd-item input[type=checkbox] { cursor: pointer; accent-color: var(--primary); flex-shrink: 0; }
@@ -1128,7 +1137,7 @@ body {
   gap: 6px;
   font-size: 13px;
   font-weight: 700;
-  background: var(--navy-800);
+  background: var(--accent-grad);
   color: #fff;
 }
 .feed-head-fol {
@@ -1209,8 +1218,13 @@ body {
 
 /* 公式アカウントカード */
 .cmp-entry--official {
-  background: #fdf8ed;
-  border-color: #e6d48a !important;
+  background: #f7f4ff;
+  border-color: #c5bef8 !important;
+}
+
+/* 公式アカウントのアバターはグラデーション（紫系） */
+.cmp-entry--official .avatar {
+  background: linear-gradient(135deg, var(--accent-start), var(--accent-end));
 }
 
 /* 絞り込みモーダルのリスト項目 */
