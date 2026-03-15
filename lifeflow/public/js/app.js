@@ -86,7 +86,7 @@ function navigate(page, param) {
   else if (page === 'register')  { location.hash = 'register'; renderRegister(); }
   else if (page === 'following') { renderFollowList(param, 'following'); }
   else if (page === 'followers') { renderFollowList(param, 'followers'); }
-  else if (page === 'search')    { location.hash = 'search'; renderSearch(param || ''); }
+  else if (page === 'search')    { location.hash = 'search'; window._searchFollowingSet = null; renderSearch(param || ''); }
 }
 
 // ===== ページ =====
@@ -570,20 +570,81 @@ function _toggleMyTag(tagId) {
   _renderCompareView();
 }
 
+// ===== 検索ページ =====
+window._searchTab = 'all'; // 'all' | 'user' | 'official'
+window._searchFollowingSet = null; // Set of usernames
+
 async function renderSearch(q = '') {
-  setMain(`<div class="container">
-    <div class="page-header">
-      <h1 class="page-title">ユーザー検索</h1>
-    </div>
-    <div class="form-group" style="margin-bottom:16px">
-      <input type="search" id="searchPageInput" placeholder="ユーザー名で検索..."
-        value="${escHtml(q)}"
-        oninput="_debounceSearchPage()"
-        onkeydown="if(event.key==='Enter')_execSearchPage()">
-    </div>
-    <div id="searchPageResults"></div>
-  </div>`);
-  if (q) _execSearchPage();
+  setMain(`
+    <div class="search-page">
+      <div class="search-header">
+        <div class="search-input-wrap">
+          <svg class="search-input-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+          </svg>
+          <input type="search" id="searchPageInput" class="search-input"
+            placeholder="名前で検索..."
+            value="${escHtml(q)}"
+            oninput="_debounceSearchPage()"
+            onkeydown="if(event.key==='Enter')_execSearchPage()">
+        </div>
+        <div class="search-tabs">
+          <button class="search-tab${window._searchTab==='all'?' is-active':''}" onclick="_setSearchTab('all')">すべて</button>
+          <button class="search-tab${window._searchTab==='user'?' is-active':''}" onclick="_setSearchTab('user')">ユーザー</button>
+          <button class="search-tab${window._searchTab==='official'?' is-active':''}" onclick="_setSearchTab('official')">公式</button>
+        </div>
+      </div>
+      <div id="searchPageResults"></div>
+    </div>`);
+
+  // フォロー中ユーザーセットをロード（未ロード時のみ）
+  if (!window._searchFollowingSet) {
+    const me = window._currentUser;
+    if (me) {
+      try {
+        const following = await API.getFollowing(me.username);
+        window._searchFollowingSet = new Set(following.map(u => u.username));
+      } catch { window._searchFollowingSet = new Set(); }
+    } else {
+      window._searchFollowingSet = new Set();
+    }
+  }
+
+  if (q) {
+    _execSearchPage();
+  } else {
+    _showSearchRecommendations();
+  }
+}
+
+function _setSearchTab(tab) {
+  window._searchTab = tab;
+  // タブボタンのスタイル更新
+  document.querySelectorAll('.search-tab').forEach(btn => {
+    btn.classList.toggle('is-active', btn.textContent === {all:'すべて',user:'ユーザー',official:'公式'}[tab]);
+  });
+  const q = document.getElementById('searchPageInput')?.value.trim();
+  if (q) _execSearchPage(); else _showSearchRecommendations();
+}
+
+// 公式アカウントのおすすめ表示（クエリ空時）
+async function _showSearchRecommendations() {
+  const el = document.getElementById('searchPageResults');
+  if (!el) return;
+  el.innerHTML = loading();
+  try {
+    const users = await API.searchUsers('');
+    const officials = users.filter(u => u.is_official);
+    if (!officials.length) {
+      el.innerHTML = '<div class="search-section-label">おすすめ公式アカウント</div><div class="search-empty">公式アカウントはまだありません</div>';
+      return;
+    }
+    el.innerHTML = `
+      <div class="search-section-label">おすすめ公式アカウント</div>
+      <div class="search-results">${officials.map(u => _searchUserCard(u)).join('')}</div>`;
+  } catch {
+    el.innerHTML = '<div class="search-empty">読み込みに失敗しました</div>';
+  }
 }
 
 let _searchPageTimer;
@@ -597,18 +658,79 @@ async function _execSearchPage() {
   const el    = document.getElementById('searchPageResults');
   if (!input || !el) return;
   const q = input.value.trim();
-  if (!q) { el.innerHTML = ''; return; }
+  if (!q) { _showSearchRecommendations(); return; }
   el.innerHTML = loading();
   try {
-    const users = await API.searchUsers(q);
+    let users = await API.searchUsers(q);
+    const tab = window._searchTab;
+    if (tab === 'official') users = users.filter(u => u.is_official);
+    else if (tab === 'user') users = users.filter(u => !u.is_official);
     if (!users.length) {
-      el.innerHTML = '<div class="empty"><div class="empty-icon"></div><p>ユーザーが見つかりません</p></div>';
+      el.innerHTML = '<div class="search-empty">見つかりませんでした</div>';
       return;
     }
-    el.innerHTML = `<ul class="user-list">${users.map(u => userListItem(u)).join('')}</ul>`;
+    el.innerHTML = `<div class="search-results">${users.map(u => _searchUserCard(u)).join('')}</div>`;
   } catch (e) {
-    el.innerHTML = `<div class="empty"><p>${escHtml(e.message)}</p></div>`;
+    el.innerHTML = `<div class="search-empty">${escHtml(e.message)}</div>`;
   }
+}
+
+function _searchUserCard(user) {
+  const isOfficial = !!user.is_official;
+  const isFollowing = window._searchFollowingSet?.has(user.username);
+  const isSelf = window._currentUser?.username === user.username;
+  const avatarCls = isOfficial ? 'avatar avatar-official' : 'avatar';
+  const letter = (user.username || '?')[0].toUpperCase();
+  const avatarHtml = user.avatar_url
+    ? `<div class="${avatarCls}"><img src="${escHtml(user.avatar_url)}" alt="" onerror="this.parentElement.innerHTML='${letter}'"></div>`
+    : `<div class="${avatarCls}">${letter}</div>`;
+
+  const followBtn = isSelf ? '' : isFollowing
+    ? `<button class="btn btn-sm btn-secondary search-follow-btn" data-un="${escHtml(user.username)}" onclick="_searchUnfollow('${escHtml(user.username)}')">フォロー中</button>`
+    : `<button class="btn btn-sm btn-primary search-follow-btn" data-un="${escHtml(user.username)}" onclick="_searchFollow('${escHtml(user.username)}')">フォロー</button>`;
+
+  return `<div class="search-user-card${isOfficial?' is-official':''}" data-username="${escHtml(user.username)}">
+    <div class="search-user-card-left" onclick="navigate('profile','${escHtml(user.username)}')">
+      ${avatarHtml}
+      <div class="search-user-card-info">
+        <div class="search-user-card-name">
+          ${escHtml(user.username)}
+          ${isOfficial ? '<span class="search-official-label">公式</span>' : ''}
+        </div>
+        ${user.bio ? `<div class="search-user-card-bio">${escHtml(user.bio)}</div>` : ''}
+      </div>
+    </div>
+    <div class="search-user-card-actions">
+      ${followBtn}
+      <button class="btn btn-sm btn-ghost" onclick="navigate('profile','${escHtml(user.username)}')">詳細</button>
+    </div>
+  </div>`;
+}
+
+async function _searchFollow(username) {
+  try {
+    await API.follow(username);
+    window._searchFollowingSet?.add(username);
+    document.querySelectorAll(`.search-user-card[data-username="${username}"] .search-follow-btn`).forEach(btn => {
+      btn.textContent = 'フォロー中';
+      btn.className = 'btn btn-sm btn-secondary search-follow-btn';
+      btn.setAttribute('onclick', `_searchUnfollow('${username}')`);
+    });
+    toast('フォローしました', 'success');
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+async function _searchUnfollow(username) {
+  try {
+    await API.unfollow(username);
+    window._searchFollowingSet?.delete(username);
+    document.querySelectorAll(`.search-user-card[data-username="${username}"] .search-follow-btn`).forEach(btn => {
+      btn.textContent = 'フォロー';
+      btn.className = 'btn btn-sm btn-primary search-follow-btn';
+      btn.setAttribute('onclick', `_searchFollow('${username}')`);
+    });
+    toast('フォローを解除しました', 'info');
+  } catch (e) { toast(e.message, 'error'); }
 }
 
 async function renderFollowList(username, type) {
