@@ -133,18 +133,18 @@ function openFeedTagModal() {
 
 function openFeedFollowerModal() {
   const { following } = window._feedData;
-  const normalFollowing = following.filter(u => !u.is_official);
   const hiddenFollowers = window._feedHiddenFollowers;
-  if (!normalFollowing.length) return;
+  if (!following.length) return;
   showModal(`
     <button class="modal-close" onclick="closeModal()">&#10005;</button>
     <h3 style="margin-bottom:12px">フォロワーで絞り込み</h3>
-    ${normalFollowing.map(u => `
+    ${following.map(u => `
       <label class="filter-modal-item">
         <input type="checkbox" ${!hiddenFollowers.has(Number(u.id)) ? 'checked' : ''}
           onchange="_feedToggleFollower(${u.id})">
         ${avatar(u, 'avatar-xs')}
         <span>${escHtml(u.username)}</span>
+        ${u.is_official ? '<span class="official-badge" style="font-size:9px">公式</span>' : ''}
       </label>`).join('')}
     <button class="btn btn-primary" style="margin-top:14px;width:100%" onclick="closeModal()">閉じる</button>
   `);
@@ -180,8 +180,7 @@ function _renderFeedView() {
   const hiddenTags      = window._feedHiddenTags;
   const hiddenFollowers = window._feedHiddenFollowers;
 
-  // 公式アカウントを除外（自分史との比較には一般フォロワーのみ）
-  const normalFollowing = following.filter(u => !u.is_official);
+  const normalFollowing = following;
 
   const myAllTags = [...new Map(me.entries.flatMap(e => e.tags||[]).map(t => [t.id, t])).values()];
 
