@@ -57,6 +57,7 @@ document.addEventListener('click', () => {
   closeNavMenu();
   document.getElementById('ef-tags-menu')?.classList.add('hidden');
   document.getElementById('feedTagMenu')?.classList.add('hidden');
+  document.getElementById('feedFolMenu')?.classList.add('hidden');
 });
 
 function setupSearch() {
@@ -119,8 +120,9 @@ function navigate(page, param) {
 
 // ===== ページ =====
 
-window._feedData      = null;
-window._feedHiddenTags = new Set();
+window._feedData           = null;
+window._feedHiddenTags     = new Set();
+window._feedHiddenFollowers = new Set();
 
 async function renderFeed() {
   if (!window._currentUser) { renderLanding(); return; }
@@ -129,8 +131,9 @@ async function renderFeed() {
 
   try {
     const data = await API.compareAll();
-    window._feedData      = data;
-    window._feedHiddenTags = new Set();
+    window._feedData            = data;
+    window._feedHiddenTags      = new Set();
+    window._feedHiddenFollowers = new Set();
     _renderFeedView();
   } catch (e) {
     setMain(`<div class="container"><div class="empty"><div class="empty-icon"></div><p>${escHtml(e.message)}</p></div></div>`);
@@ -159,9 +162,38 @@ function _feedTagBtnToggle(e) {
   document.getElementById('feedTagMenu')?.classList.toggle('hidden');
 }
 
+function _feedFollowerFilterHtml(followers, hiddenFollowers) {
+  if (!followers.length) return '';
+  const shown = followers.length - hiddenFollowers.size;
+  const label = hiddenFollowers.size ? `表示 (${shown}/${followers.length})` : '絞り込み';
+  const items = followers.map(u => `
+    <label class="feed-tag-item">
+      <input type="checkbox" ${!hiddenFollowers.has(u.id) ? 'checked' : ''}
+        onchange="_feedToggleFollower(${u.id})">
+      ${avatar(u, 'avatar-xs')}
+      <span>${escHtml(u.username)}</span>
+    </label>`).join('');
+  return `<div class="feed-tag-dd">
+    <button class="feed-tag-btn feed-fol-btn" onclick="_feedFolBtnToggle(event)">${label} ▾</button>
+    <div class="feed-tag-menu hidden" id="feedFolMenu">${items}</div>
+  </div>`;
+}
+
+function _feedFolBtnToggle(e) {
+  e.stopPropagation();
+  document.getElementById('feedFolMenu')?.classList.toggle('hidden');
+}
+
+function _feedToggleFollower(userId) {
+  if (window._feedHiddenFollowers.has(userId)) window._feedHiddenFollowers.delete(userId);
+  else window._feedHiddenFollowers.add(userId);
+  _renderFeedView();
+}
+
 function _renderFeedView() {
   const { me, following } = window._feedData;
-  const hiddenTags = window._feedHiddenTags;
+  const hiddenTags      = window._feedHiddenTags;
+  const hiddenFollowers = window._feedHiddenFollowers;
 
   // 公式アカウントを除外（自分史との比較には一般フォロワーのみ）
   const normalFollowing = following.filter(u => !u.is_official);
@@ -173,6 +205,7 @@ function _renderFeedView() {
     : me.entries.filter(e => !(e.tags||[]).some(t => hiddenTags.has(t.id)));
 
   const followerEntries = normalFollowing
+    .filter(u => !hiddenFollowers.has(u.id))
     .flatMap(u => u.entries.map(e => ({ ...e, _user: u })));
 
   // 年ごとにグループ化して横並び比較
@@ -206,7 +239,7 @@ function _renderFeedView() {
           </div>
           <div class="feed-head-col">
             <span>フォロワー史</span>
-            <span class="col-header-count">${normalFollowing.length}人</span>
+            ${_feedFollowerFilterHtml(normalFollowing, hiddenFollowers)}
           </div>
         </div>
         ${rows || '<p class="col-empty" style="padding:32px;text-align:center">エントリーがありません</p>'}
