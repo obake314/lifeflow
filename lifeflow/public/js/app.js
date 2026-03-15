@@ -305,7 +305,8 @@ async function renderProfile(username) {
       ? `<button class="btn btn-sm btn-outline" onclick="navigate('compare')">比較する</button>` : '';
 
     const editBtn = isSelf
-      ? `<button class="btn btn-sm btn-secondary" onclick="openProfileEdit()">プロフィール編集</button>` : '';
+      ? `<button class="btn btn-sm btn-secondary" onclick="openProfileEdit()">プロフィール編集</button>
+         <button class="btn btn-sm btn-ghost" onclick="_openExportModal()">エクスポート</button>` : '';
 
     setMain(`<div class="container">
       <div class="profile-header">
@@ -731,6 +732,248 @@ async function _searchUnfollow(username) {
     });
     toast('フォローを解除しました', 'info');
   } catch (e) { toast(e.message, 'error'); }
+}
+
+// ===== エクスポート =====
+function _openExportModal() {
+  const overlay = document.createElement('div');
+  overlay.className = 'modal';
+  overlay.id = 'exportModalOverlay';
+  overlay.innerHTML = `
+    <div class="modal-box export-modal">
+      <div class="modal-header">
+        <h3 class="modal-title">エクスポート</h3>
+        <button class="modal-close" onclick="document.getElementById('exportModalOverlay').remove()">✕</button>
+      </div>
+      <p class="export-modal-desc">テンプレートを選んでください。新しいウィンドウで開き、印刷またはPDF保存できます。</p>
+      <div class="export-template-list">
+        <button class="export-template-card" onclick="_exportAs('resume')">
+          <div class="export-template-icon">📋</div>
+          <div class="export-template-info">
+            <div class="export-template-title">履歴書・職務経歴書</div>
+            <div class="export-template-desc">仕事・学業を中心にまとめたビジネス向けフォーマット</div>
+          </div>
+        </button>
+        <button class="export-template-card" onclick="_exportAs('artist')">
+          <div class="export-template-icon">🎨</div>
+          <div class="export-template-info">
+            <div class="export-template-title">アーティストバイオグラフィー</div>
+            <div class="export-template-desc">活動・作品・経歴をまとめたアーティスト向け略歴</div>
+          </div>
+        </button>
+        <button class="export-template-card" onclick="_exportAs('wedding')">
+          <div class="export-template-icon">💒</div>
+          <div class="export-template-info">
+            <div class="export-template-title">結婚式 経歴書</div>
+            <div class="export-template-desc">生い立ちから現在までを温かみのある形式でまとめた式典用プロフィール</div>
+          </div>
+        </button>
+      </div>
+    </div>`;
+  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+  document.body.appendChild(overlay);
+}
+
+async function _exportAs(type) {
+  document.getElementById('exportModalOverlay')?.remove();
+  const username = window._state?.username || window._currentUser?.username;
+  let entries = window._profileEntries || [];
+  let profile = null;
+  try {
+    profile = await API.getProfile(username, window._currentUser?.id);
+  } catch { profile = { username, bio: '' }; }
+  if (!entries.length) {
+    try { entries = await API.getUserEntries(username); } catch { entries = []; }
+  }
+  // 日付昇順
+  entries = [...entries].sort((a, b) => (a.entry_date || '').localeCompare(b.entry_date || ''));
+
+  const doc = type === 'resume'  ? _buildResumeHtml(profile, entries)
+            : type === 'artist'  ? _buildArtistHtml(profile, entries)
+            :                      _buildWeddingHtml(profile, entries);
+  const win = window.open('', '_blank');
+  win.document.write(doc);
+  win.document.close();
+}
+
+// --- 共通ヘルパー ---
+function _fmtDate(str, fmt = 'full') {
+  if (!str) return '';
+  const d = new Date(str);
+  if (isNaN(d)) return str;
+  if (fmt === 'ym') return d.toLocaleDateString('ja-JP', { year: 'numeric', month: 'long' });
+  if (fmt === 'y')  return d.getFullYear() + '年';
+  return d.toLocaleDateString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric' });
+}
+function _groupByYear(entries) {
+  const map = {};
+  entries.forEach(e => {
+    const y = e.entry_date ? new Date(e.entry_date).getFullYear() : '不明';
+    (map[y] = map[y] || []).push(e);
+  });
+  return Object.entries(map).sort((a, b) => String(a[0]).localeCompare(String(b[0])));
+}
+function _tagsText(entry) {
+  return (entry.tags || []).map(t => t.name).join('・');
+}
+
+// --- 印刷用ベースCSS ---
+function _baseStyles(accentColor) {
+  return `
+    *, *::before, *::after { box-sizing: border-box; }
+    body { margin: 0; font-family: 'Hiragino Kaku Gothic ProN', 'Hiragino Sans', 'Meiryo', sans-serif;
+           color: #222; background: #fff; font-size: 10pt; line-height: 1.6; }
+    .page { max-width: 780px; margin: 0 auto; padding: 36px 40px; }
+    h1 { margin: 0 0 4px; font-size: 22pt; font-weight: 700; letter-spacing: -0.02em; }
+    h2 { font-size: 12pt; font-weight: 700; margin: 0 0 10px; color: ${accentColor};
+         border-bottom: 2px solid ${accentColor}; padding-bottom: 4px; }
+    h3 { font-size: 10pt; font-weight: 700; margin: 0 0 2px; }
+    p  { margin: 0 0 8px; }
+    .print-btn { display: block; margin: 0 auto 28px; padding: 10px 28px;
+                 background: ${accentColor}; color: #fff; border: none; border-radius: 6px;
+                 font-size: 13px; cursor: pointer; font-family: inherit; }
+    @media print { .print-btn { display: none; } .page { padding: 20px 24px; } }`;
+}
+
+// ===== 1. 履歴書・職務経歴書 =====
+function _buildResumeHtml(profile, entries) {
+  const WORK_TAGS = ['仕事', '学業', '資格', '受賞'];
+  const filtered = entries.filter(e => {
+    const tags = (e.tags || []).map(t => t.name);
+    return !tags.length || tags.some(n => WORK_TAGS.includes(n));
+  });
+  const rows = (filtered.length ? filtered : entries).map(e => `
+    <tr>
+      <td style="white-space:nowrap;padding:6px 12px 6px 0;vertical-align:top;color:#555;width:110px">${_fmtDate(e.entry_date,'ym')}</td>
+      <td style="padding:6px 12px 6px 0;vertical-align:top;color:#8397FE;width:80px;font-size:9pt">${_tagsText(e) || '—'}</td>
+      <td style="padding:6px 0;vertical-align:top">
+        <strong>${e.title}</strong>
+        ${e.detail ? `<div style="margin-top:2px;color:#555;font-size:9pt">${e.detail}</div>` : ''}
+      </td>
+    </tr>`).join('');
+
+  return `<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8">
+    <title>履歴書・職務経歴書 — ${profile.username}</title>
+    <style>
+      ${_baseStyles('#8397FE')}
+      .header { display: flex; justify-content: space-between; align-items: flex-end;
+                border-bottom: 3px solid #8397FE; padding-bottom: 14px; margin-bottom: 28px; }
+      .header-meta { font-size: 9pt; color: #666; text-align: right; }
+      table { width: 100%; border-collapse: collapse; }
+      tr:not(:last-child) td { border-bottom: 1px solid #eee; }
+      section { margin-bottom: 32px; }
+    </style></head><body>
+    <div class="page">
+      <button class="print-btn" onclick="window.print()">印刷 / PDF保存</button>
+      <div class="header">
+        <div>
+          <h1>${profile.username}</h1>
+          ${profile.bio ? `<p style="margin:6px 0 0;color:#555;font-size:10pt">${profile.bio}</p>` : ''}
+        </div>
+        <div class="header-meta">作成日：${new Date().toLocaleDateString('ja-JP')}</div>
+      </div>
+      <section>
+        <h2>学歴・職歴</h2>
+        <table><tbody>${rows}</tbody></table>
+      </section>
+    </div>
+  </body></html>`;
+}
+
+// ===== 2. アーティストバイオグラフィー =====
+function _buildArtistHtml(profile, entries) {
+  const years = _groupByYear(entries);
+  const timeline = years.map(([y, es]) => `
+    <div class="year-block">
+      <div class="year-label">${y}</div>
+      <div class="year-entries">
+        ${es.map(e => `
+          <div class="bio-entry">
+            ${e.image_url ? `<img src="${e.image_url}" alt="" class="bio-img">` : ''}
+            <div>
+              <strong>${e.title}</strong>
+              ${_tagsText(e) ? `<span class="tag-pill">${_tagsText(e)}</span>` : ''}
+              ${e.detail ? `<p style="margin:4px 0 0;color:#555;font-size:9pt">${e.detail}</p>` : ''}
+            </div>
+          </div>`).join('')}
+      </div>
+    </div>`).join('');
+
+  return `<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8">
+    <title>バイオグラフィー — ${profile.username}</title>
+    <style>
+      ${_baseStyles('#8397FE')}
+      .hero { text-align: center; padding: 24px 0 32px; border-bottom: 1px solid #eee; margin-bottom: 32px; }
+      .hero h1 { font-size: 28pt; }
+      .hero .bio { margin-top: 10px; color: #555; max-width: 560px; margin-left: auto; margin-right: auto; }
+      .year-block { display: flex; gap: 16px; margin-bottom: 24px; }
+      .year-label { width: 56px; flex-shrink: 0; font-weight: 700; color: #8397FE; font-size: 11pt; padding-top: 2px; }
+      .year-entries { flex: 1; border-left: 2px solid #e8eaff; padding-left: 16px; display: flex; flex-direction: column; gap: 14px; }
+      .bio-entry { display: flex; gap: 12px; align-items: flex-start; }
+      .bio-img { width: 72px; height: 54px; object-fit: cover; border-radius: 4px; flex-shrink: 0; }
+      .tag-pill { display: inline-block; background: #ede9ff; color: #8397FE; border-radius: 4px;
+                  padding: 1px 7px; font-size: 8pt; margin-left: 6px; vertical-align: middle; }
+    </style></head><body>
+    <div class="page">
+      <button class="print-btn" onclick="window.print()">印刷 / PDF保存</button>
+      <div class="hero">
+        <h1>${profile.username}</h1>
+        ${profile.bio ? `<p class="bio">${profile.bio}</p>` : ''}
+      </div>
+      <h2>年表</h2>
+      ${timeline || '<p style="color:#999">エントリーがありません</p>'}
+    </div>
+  </body></html>`;
+}
+
+// ===== 3. 結婚式 経歴書 =====
+function _buildWeddingHtml(profile, entries) {
+  const years = _groupByYear(entries);
+  const timeline = years.map(([y, es]) => `
+    <div class="w-year">
+      <div class="w-year-label">${y}</div>
+      <ul class="w-list">
+        ${es.map(e => `
+          <li>
+            <span class="w-date">${_fmtDate(e.entry_date,'ym')}</span>
+            <span class="w-title">${e.title}</span>
+            ${e.detail ? `<span class="w-detail">— ${e.detail}</span>` : ''}
+          </li>`).join('')}
+      </ul>
+    </div>`).join('');
+
+  return `<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8">
+    <title>経歴書 — ${profile.username}</title>
+    <style>
+      ${_baseStyles('#b48fc8')}
+      body { font-size: 10.5pt; }
+      .w-cover { text-align: center; padding: 40px 0 36px; }
+      .w-cover .label { font-size: 9pt; letter-spacing: .2em; color: #b48fc8; margin-bottom: 16px; }
+      .w-cover h1 { font-size: 26pt; font-weight: 700; color: #3a2a4a; letter-spacing: .05em; }
+      .w-cover .bio { margin-top: 12px; color: #666; font-size: 10pt; max-width: 500px;
+                      margin-left: auto; margin-right: auto; line-height: 1.8; }
+      .w-divider { text-align: center; margin: 8px 0 32px; color: #c9aad8; font-size: 14pt; letter-spacing: .5em; }
+      h2 { color: #8c6aaa; border-bottom-color: #c9aad8; }
+      .w-year { display: flex; gap: 20px; margin-bottom: 20px; }
+      .w-year-label { width: 52px; flex-shrink: 0; font-weight: 700; color: #b48fc8; padding-top: 3px; }
+      .w-list { list-style: none; margin: 0; padding: 0; border-left: 1px dashed #dcc8e8; padding-left: 16px; flex: 1; }
+      .w-list li { margin-bottom: 7px; }
+      .w-date { color: #888; font-size: 9pt; margin-right: 8px; }
+      .w-title { font-weight: 600; color: #3a2a4a; }
+      .w-detail { color: #666; font-size: 9pt; margin-left: 6px; }
+    </style></head><body>
+    <div class="page">
+      <button class="print-btn" onclick="window.print()">印刷 / PDF保存</button>
+      <div class="w-cover">
+        <div class="label">PROFILE</div>
+        <h1>${profile.username}</h1>
+        ${profile.bio ? `<p class="bio">${profile.bio}</p>` : ''}
+      </div>
+      <div class="w-divider">✦ ✦ ✦</div>
+      <h2>生涯のあゆみ</h2>
+      ${timeline || '<p style="color:#999">エントリーがありません</p>'}
+    </div>
+  </body></html>`;
 }
 
 async function renderFollowList(username, type) {
