@@ -1045,6 +1045,13 @@ body {
   border: 1px solid;
 }
 
+/* フィード2カラム: 各カラムが均等に幅を占める */
+.feed-two-col { overflow-x: hidden !important; }
+.feed-col {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
 /* 3カラムレイアウト: 各カラムが均等に幅を占める */
 .col-flex {
   flex: 1 1 0;
@@ -1103,4 +1110,21 @@ body {
   .profile-top { flex-direction: column; align-items: center; text-align: center; }
   .profile-stats { justify-content: center; }
   .modal-box { padding: 20px; }
+
+  /* フィード2カラム: スマホでは縦積み */
+  .feed-two-col {
+    flex-direction: column;
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+  .feed-col {
+    flex: none;
+    min-width: 0;
+    width: 100%;
+    border-right: none;
+    border-bottom: 2px solid var(--border);
+    overflow-y: visible;
+    max-height: none;
+  }
+  .compare-page { height: auto; overflow: visible; }
 }

@@ -53,6 +53,7 @@ function toggleNavMenu(e) {
 function closeNavMenu() {
   document.getElementById('navDropdown')?.classList.add('hidden');
 }
+document.addEventListener('click', () => closeNavMenu());
 
 function setupSearch() {
   const input    = document.getElementById('searchInput');
@@ -136,9 +137,6 @@ function _renderFeedView() {
   const { me, following } = window._feedData;
   const hiddenTags = window._feedHiddenTags;
 
-  const normalFollowing   = following.filter(u => !u.is_official);
-  const officialFollowing = following.filter(u =>  u.is_official);
-
   const myAllTags = [...new Map(me.entries.flatMap(e => e.tags||[]).map(t => [t.id, t])).values()];
 
   // カテゴリチップ（左カラムフィルター）
@@ -149,16 +147,16 @@ function _renderFeedView() {
       ${off ? '✕' : '✓'} ${escHtml(t.name)}</button>`;
   }).join('');
 
-  // カラム1: 自分の記録
+  // カラム1: 自分史
   const myFiltered = hiddenTags.size === 0
     ? me.entries
     : me.entries.filter(e => !(e.tags||[]).some(t => hiddenTags.has(t.id)));
 
   const myCol = `
-    <div class="compare-col col-mine col-flex">
+    <div class="compare-col col-mine feed-col">
       <div class="compare-col-header">
         ${avatar(me, 'avatar-xs')}
-        <span class="col-header-name">あなたの記録</span>
+        <span class="col-header-name">自分史</span>
         <button class="btn btn-primary btn-sm" style="margin-left:auto;font-size:11px;padding:4px 10px" onclick="openEntryForm()">+ 追加</button>
       </div>
       ${myAllTags.length ? `<div class="col-category-filter" style="padding:8px 12px 0;display:flex;gap:4px;flex-wrap:wrap">${catChips}</div>` : ''}
@@ -169,49 +167,29 @@ function _renderFeedView() {
       </div>
     </div>`;
 
-  // カラム2: フォロー中（一般ユーザー）を時系列統合
-  const normalEntries = normalFollowing
+  // カラム2: フォロワー史（一般＋公式を時系列統合）
+  const followerEntries = following
     .flatMap(u => u.entries.map(e => ({ ...e, _user: u })))
     .sort((a, b) => a.entry_date.localeCompare(b.entry_date));
 
-  const normalCol = `
-    <div class="compare-col col-flex">
+  const followerCol = `
+    <div class="compare-col col-header-normal feed-col">
       <div class="compare-col-header col-header-normal">
-        <span class="col-header-name" style="color:var(--text)">フォロー中</span>
-        <span class="col-header-count">${normalFollowing.length}人</span>
+        <span class="col-header-name" style="color:var(--text)">フォロワー史</span>
+        <span class="col-header-count">${following.length}人</span>
       </div>
       <div class="compare-col-entries">
-        ${normalEntries.length
-          ? normalEntries.map(e => _cmpEntryCardWithUser(e, e._user)).join('')
+        ${followerEntries.length
+          ? followerEntries.map(e => _cmpEntryCardWithUser(e, e._user)).join('')
           : '<div class="col-empty">フォロー中のユーザーがいないか、エントリーがありません</div>'}
-      </div>
-    </div>`;
-
-  // カラム3: 公式アカウントを時系列統合
-  const officialEntries = officialFollowing
-    .flatMap(u => u.entries.map(e => ({ ...e, _user: u })))
-    .sort((a, b) => a.entry_date.localeCompare(b.entry_date));
-
-  const officialCol = `
-    <div class="compare-col col-official col-flex">
-      <div class="compare-col-header">
-        <span class="col-header-name">公式・歴史</span>
-        <span class="official-badge">公式</span>
-        <span class="col-header-count" style="color:rgba(255,255,255,.5)">${officialFollowing.length}件</span>
-      </div>
-      <div class="compare-col-entries">
-        ${officialEntries.length
-          ? officialEntries.map(e => _cmpEntryCardWithUser(e, e._user)).join('')
-          : '<div class="col-empty">公式アカウントをフォローしていません</div>'}
       </div>
     </div>`;
 
   setMain(`
     <div class="compare-page">
-      <div class="compare-columns-wrap">
+      <div class="compare-columns-wrap feed-two-col">
         ${myCol}
-        ${normalCol}
-        ${officialCol}
+        ${followerCol}
       </div>
     </div>`);
 }
