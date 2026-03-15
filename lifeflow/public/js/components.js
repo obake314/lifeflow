@@ -162,43 +162,45 @@ async function openEntryForm(entry = null) {
 
   showModal(`
     <button class="modal-close" onclick="closeModal()">&#10005;</button>
-    <h3>${entry ? 'エントリーを編集' : '新しいエントリー'}</h3>
-    <div class="form-group">
+    <h3 style="margin-bottom:12px">${entry ? 'エントリーを編集' : '新しいエントリー'}</h3>
+    <div class="form-row">
       <label>日付</label>
       <input type="date" id="ef-date" value="${dateVal}">
     </div>
-    <div class="form-group">
+    <div class="form-row">
       <label>タイトル</label>
       <input type="text" id="ef-title" placeholder="例：初めての就職" value="${escHtml(entry?.title || '')}">
     </div>
-    <div class="form-group">
+    <div class="form-row">
       <label>詳細</label>
       <textarea id="ef-detail" placeholder="このとき何があったか...">${escHtml(entry?.detail || '')}</textarea>
     </div>
-    <div class="form-group">
+    <div class="form-row">
       <label>画像</label>
-      <input type="file" id="ef-imageFile" accept="image/*" onchange="previewImage(this)">
-      <input type="hidden" id="ef-imageUrl" value="${escHtml(entry?.image_url || '')}">
-      <img id="ef-imagePreview" class="image-preview ${entry?.image_url ? 'show' : ''}" src="${escHtml(entry?.image_url || '')}" alt="">
+      <div>
+        <input type="file" id="ef-imageFile" accept="image/*" onchange="previewImage(this)" style="font-size:12px;max-width:100%">
+        <input type="hidden" id="ef-imageUrl" value="${escHtml(entry?.image_url || '')}">
+        <img id="ef-imagePreview" class="image-preview ${entry?.image_url ? 'show' : ''}" src="${escHtml(entry?.image_url || '')}" alt="">
+      </div>
     </div>
-    <div class="form-group">
+    <div class="form-row">
       <label>タグ</label>
       ${tagDropdownHtml(tags, selectedTagIds)}
     </div>
-    <div class="form-group">
-      <label>公開範囲</label>
+    <div class="form-row">
+      <label>公開</label>
       <select id="ef-visibility" onchange="handleVisibilityChange(this.value)">${visibilityOptions}</select>
     </div>
     <div class="specific-viewers-section ${entry?.visibility === 'specific' ? 'show' : ''}" id="ef-specificSection">
-      <div class="form-group">
-        <label>閲覧を許可するフォロワー（カンマ区切りのユーザー名）</label>
+      <div class="form-row">
+        <label>閲覧者</label>
         <input type="text" id="ef-specificViewers" placeholder="alice, bob" value="${(entry?.specificViewers||[]).map(u=>u.username).join(', ')}">
       </div>
     </div>
-    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px">
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px">
       <button class="btn btn-secondary" onclick="closeModal()">キャンセル</button>
       <button class="btn btn-primary" onclick="submitEntryForm('${entry?.id || ''}')">
-        ${entry ? '保存する' : '追加する'}
+        ${entry ? '保存' : '追加'}
       </button>
     </div>
   `);
