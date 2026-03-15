@@ -464,11 +464,13 @@ body {
 .tag-dd-item {
   display: flex;
   align-items: center;
+  width: 100%;
   gap: 8px;
   padding: 9px 12px;
   cursor: pointer;
   font-size: 13px;
   color: var(--text);
+  box-sizing: border-box;
 }
 .tag-dd-item:hover { background: var(--surface-3); }
 .tag-dd-item input[type=checkbox] { cursor: pointer; accent-color: var(--primary); flex-shrink: 0; }
@@ -1108,8 +1110,8 @@ body {
 /* フィード2カラム: 各カラムが均等に幅を占める */
 .feed-two-col { overflow: hidden; }
 .feed-col {
-  flex: 1 1 0;
-  min-width: 0;
+  flex: 1 1 0 !important;
+  min-width: 0 !important;
   overflow: hidden;
 }
 
