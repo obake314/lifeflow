@@ -53,7 +53,10 @@ function toggleNavMenu(e) {
 function closeNavMenu() {
   document.getElementById('navDropdown')?.classList.add('hidden');
 }
-document.addEventListener('click', () => closeNavMenu());
+document.addEventListener('click', () => {
+  closeNavMenu();
+  document.getElementById('ef-tags-menu')?.classList.add('hidden');
+});
 
 function setupSearch() {
   const input    = document.getElementById('searchInput');
