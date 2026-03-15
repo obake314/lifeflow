@@ -56,6 +56,7 @@ function closeNavMenu() {
 document.addEventListener('click', () => {
   closeNavMenu();
   document.getElementById('ef-tags-menu')?.classList.add('hidden');
+  document.getElementById('feedTagMenu')?.classList.add('hidden');
 });
 
 function setupSearch() {
@@ -136,6 +137,28 @@ async function renderFeed() {
   }
 }
 
+function _feedTagFilterHtml(tags, hiddenTags) {
+  if (!tags.length) return '';
+  const shown = tags.length - hiddenTags.size;
+  const label = hiddenTags.size ? `絞り込み (${shown}/${tags.length})` : '絞り込み';
+  const items = tags.map(t => `
+    <label class="feed-tag-item">
+      <input type="checkbox" ${!hiddenTags.has(t.id) ? 'checked' : ''}
+        onchange="_feedToggleTag(${t.id})">
+      <span class="tag-dot" style="background:${t.color}"></span>
+      ${escHtml(t.name)}
+    </label>`).join('');
+  return `<div class="feed-tag-dd">
+    <button class="feed-tag-btn" onclick="_feedTagBtnToggle(event)">${label} ▾</button>
+    <div class="feed-tag-menu hidden" id="feedTagMenu">${items}</div>
+  </div>`;
+}
+
+function _feedTagBtnToggle(e) {
+  e.stopPropagation();
+  document.getElementById('feedTagMenu')?.classList.toggle('hidden');
+}
+
 function _renderFeedView() {
   const { me, following } = window._feedData;
   const hiddenTags = window._feedHiddenTags;
@@ -144,12 +167,6 @@ function _renderFeedView() {
   const normalFollowing = following.filter(u => !u.is_official);
 
   const myAllTags = [...new Map(me.entries.flatMap(e => e.tags||[]).map(t => [t.id, t])).values()];
-  const catChips = myAllTags.map(t => {
-    const off = hiddenTags.has(t.id);
-    return `<button class="cat-chip ${off ? 'chip-off' : 'chip-on'}"
-      onclick="_feedToggleTag(${t.id})" style="--chip-color:${t.color}">
-      ${off ? '✕' : '✓'} ${escHtml(t.name)}</button>`;
-  }).join('');
 
   const myEntries = hiddenTags.size === 0
     ? me.entries
@@ -179,19 +196,19 @@ function _renderFeedView() {
 
   setMain(`
     <div class="compare-page feed-page">
-      <div class="feed-head">
-        <div class="feed-head-spacer"></div>
-        <div class="feed-head-col col-mine">
-          ${avatar(me, 'avatar-xs')}
-          <span>自分史</span>
-          ${catChips ? `<span class="feed-chip-row">${catChips}</span>` : ''}
-        </div>
-        <div class="feed-head-col">
-          <span>フォロワー史</span>
-          <span class="col-header-count">${normalFollowing.length}人</span>
-        </div>
-      </div>
       <div class="feed-timeline">
+        <div class="feed-head">
+          <div class="feed-head-spacer"></div>
+          <div class="feed-head-col col-mine">
+            ${avatar(me, 'avatar-xs')}
+            <span>自分史</span>
+            ${_feedTagFilterHtml(myAllTags, hiddenTags)}
+          </div>
+          <div class="feed-head-col">
+            <span>フォロワー史</span>
+            <span class="col-header-count">${normalFollowing.length}人</span>
+          </div>
+        </div>
         ${rows || '<p class="col-empty" style="padding:32px;text-align:center">エントリーがありません</p>'}
       </div>
     </div>`);

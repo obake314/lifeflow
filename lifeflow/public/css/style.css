@@ -1117,34 +1117,79 @@ body {
   overflow: hidden;
 }
 
-/* 列ヘッダー: [スペーサー44px][自分史][フォロワー史] */
+/* タイムライン本体: 両軸スクロール */
+.feed-timeline {
+  flex: 1;
+  overflow: auto;
+}
+
+/* 列ヘッダー: sticky で縦スクロール時に固定、横スクロールと一緒に動く */
 .feed-head {
+  position: sticky;
+  top: 0;
+  z-index: 20;
   display: grid;
-  grid-template-columns: 44px 1fr 1fr;
-  flex-shrink: 0;
+  grid-template-columns: 44px minmax(160px, 1fr) minmax(160px, 1fr);
   border-bottom: 2px solid var(--border);
+  background: var(--surface);
 }
 .feed-head-spacer { background: var(--surface-3); }
 .feed-head-col {
   padding: 8px 10px;
   display: flex;
   align-items: center;
-  flex-wrap: wrap;
-  gap: 4px 6px;
+  flex-wrap: nowrap;
+  gap: 6px;
   font-size: 13px;
   font-weight: 700;
   border-left: 1px solid var(--border);
+  white-space: nowrap;
+  overflow: hidden;
 }
 .feed-head-col.col-mine { background: var(--navy-800); color: #fff; }
-.feed-chip-row { display: flex; gap: 4px; flex-wrap: wrap; margin-left: 4px; }
 
-/* タイムライン本体: 縦スクロール1本 */
-.feed-timeline { flex: 1; overflow-y: auto; overflow-x: hidden; }
+/* タグ絞り込みドロップダウン（ヘッダー内） */
+.feed-tag-dd { position: relative; flex-shrink: 0; }
+.feed-tag-btn {
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,.3);
+  background: rgba(255,255,255,.12);
+  color: #fff;
+  cursor: pointer;
+  white-space: nowrap;
+  font-family: inherit;
+}
+.feed-tag-btn:hover { background: rgba(255,255,255,.22); }
+.feed-tag-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  min-width: 150px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow);
+  z-index: 30;
+}
+.feed-tag-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  font-size: 13px;
+  color: var(--text);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.feed-tag-item:hover { background: var(--surface-3); }
+.feed-tag-item input[type=checkbox] { cursor: pointer; accent-color: var(--primary); }
 
-/* 年ごとの行: [年ラベル44px][自分史][フォロワー史] */
+/* 年ごとの行: [年ラベル44px][自分史 min160px][フォロワー史 min160px] */
 .feed-year-row {
   display: grid;
-  grid-template-columns: 44px 1fr 1fr;
+  grid-template-columns: 44px minmax(160px, 1fr) minmax(160px, 1fr);
   border-bottom: 1px solid var(--border);
   min-height: 28px;
 }
@@ -1161,6 +1206,9 @@ body {
   letter-spacing: -0.03em;
   text-align: center;
   word-break: break-all;
+  position: sticky;
+  left: 0;
+  z-index: 5;
 }
 .feed-year-mine {
   padding: 6px 8px;
@@ -1287,8 +1335,4 @@ body {
   .compare-col-entries .cmp-entry { padding: 8px; }
   .cmp-entry-title { font-size: 12px; }
   .form-row { grid-template-columns: 48px 1fr; }
-  /* フィード年ラベルを小さく */
-  .feed-year-lbl { font-size: 9px; padding: 4px 1px; }
-  .feed-head { grid-template-columns: 32px 1fr 1fr; }
-  .feed-year-row { grid-template-columns: 32px 1fr 1fr; }
 }
