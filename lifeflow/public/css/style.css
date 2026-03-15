@@ -181,7 +181,7 @@ body {
   letter-spacing: 0.01em;
 }
 .btn-primary {
-  background: var(--accent-grad);
+  background: #8397FE;
   color: #fff;
   border-color: transparent;
 }
@@ -757,7 +757,7 @@ body {
 /* ===== Landing ===== */
 .landing {
   text-align: center;
-  padding: 72px 24px 48px;
+  padding: 36px 24px 48px;
   max-width: 600px;
   margin: 0 auto;
 }
@@ -1137,7 +1137,7 @@ body {
   gap: 6px;
   font-size: 13px;
   font-weight: 700;
-  background: var(--accent-grad);
+  background: #8397FE;
   color: #fff;
 }
 .feed-head-fol {
@@ -1222,9 +1222,9 @@ body {
   border-color: #c5bef8 !important;
 }
 
-/* 公式アカウントのアバターはグラデーション（紫系） */
+/* 公式アカウントのアバター */
 .cmp-entry--official .avatar {
-  background: linear-gradient(135deg, var(--accent-start), var(--accent-end));
+  background: #8397FE;
 }
 
 /* 絞り込みモーダルのリスト項目 */
@@ -1482,7 +1482,7 @@ body {
 }
 /* 公式アカウントのアバター色（検索カード内） */
 .avatar.avatar-official {
-  background: linear-gradient(135deg, var(--accent-start), var(--accent-end));
+  background: #8397FE;
 }
 
 /* ===== Responsive ===== */
