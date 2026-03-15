@@ -1069,11 +1069,23 @@ body {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
-  padding: 10px 12px;
+  padding: 8px 10px;
   cursor: pointer;
   transition: box-shadow .12s;
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
 }
 .cmp-entry:hover { box-shadow: var(--shadow-xs); }
+.cmp-entry-body { flex: 1; min-width: 0; }
+.cmp-entry-thumb {
+  width: 40px;
+  height: 40px;
+  object-fit: cover;
+  border-radius: 4px;
+  flex-shrink: 0;
+  align-self: flex-start;
+}
 
 .compare-col.col-mine .cmp-entry {
   border-left: 3px solid var(--primary);
@@ -1129,12 +1141,17 @@ body {
   top: 0;
   z-index: 20;
   display: grid;
-  grid-template-columns: 44px 1fr 1fr;
+  grid-template-columns: 44px 180px 1fr;
   min-width: 480px;
   border-bottom: 2px solid var(--border);
   background: var(--surface);
 }
-.feed-head-spacer { background: var(--surface-3); }
+.feed-head-spacer {
+  background: var(--surface-3);
+  position: sticky;
+  left: 0;
+  z-index: 22;
+}
 .feed-head-col {
   padding: 8px 10px;
   display: flex;
@@ -1145,9 +1162,15 @@ body {
   font-weight: 700;
   border-left: 1px solid var(--border);
   white-space: nowrap;
-  overflow: hidden;
+  overflow: visible;
 }
-.feed-head-col.col-mine { background: var(--navy-800); color: #fff; }
+.feed-head-col.col-mine {
+  background: var(--navy-800);
+  color: #fff;
+  position: sticky;
+  left: 44px;
+  z-index: 21;
+}
 
 /* タグ絞り込みドロップダウン（ヘッダー内） */
 .feed-tag-dd { position: relative; flex-shrink: 0; }
@@ -1194,10 +1217,10 @@ body {
 .feed-tag-item:hover { background: var(--surface-3); }
 .feed-tag-item input[type=checkbox] { cursor: pointer; accent-color: var(--primary); }
 
-/* 年ごとの行: [年ラベル44px][自分史 min160px][フォロワー史 min160px] */
+/* 年ごとの行: [年ラベル44px fixed][自分史 180px fixed][フォロワー史 1fr] */
 .feed-year-row {
   display: grid;
-  grid-template-columns: 44px 1fr 1fr;
+  grid-template-columns: 44px 180px 1fr;
   min-width: 480px;
   border-bottom: 1px solid var(--border);
   min-height: 28px;
@@ -1217,7 +1240,7 @@ body {
   word-break: break-all;
   position: sticky;
   left: 0;
-  z-index: 5;
+  z-index: 6;
 }
 .feed-year-mine {
   padding: 6px 8px;
@@ -1227,6 +1250,9 @@ body {
   background: var(--navy-50);
   border-right: 1px solid var(--border);
   min-width: 0;
+  position: sticky;
+  left: 44px;
+  z-index: 5;
 }
 .feed-year-fol {
   padding: 6px 8px;
@@ -1271,6 +1297,12 @@ body {
   background: var(--surface);
   color: var(--text);
   box-sizing: border-box;
+}
+.form-row input[type="date"] {
+  -webkit-appearance: none;
+  appearance: none;
+  max-width: 100%;
+  min-width: 0;
 }
 .form-row input:focus,
 .form-row textarea:focus,

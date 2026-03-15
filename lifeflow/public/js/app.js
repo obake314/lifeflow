@@ -534,12 +534,14 @@ function _cmpEntryCardWithUser(entry, user) {
     `<span class="cmp-tag" style="background:${t.color}14;color:${t.color};border-color:${t.color}30">${escHtml(t.name)}</span>`
   ).join('');
   return `<div class="cmp-entry" onclick="showEntryDetail('${entry.id}')">
-    ${entry.image_url ? `<img src="${escHtml(entry.image_url)}" style="width:100%;height:70px;object-fit:cover;border-radius:4px;margin-bottom:6px">` : ''}
-    <div class="cmp-entry-author">${avatar(user, 'avatar-xs')} <span>${escHtml(user.username)}</span></div>
-    <div class="cmp-date">${formatDate(entry.entry_date)}</div>
-    <div class="cmp-title">${escHtml(entry.title)}</div>
-    ${entry.detail ? `<div class="cmp-detail">${escHtml(entry.detail.slice(0, 60))}${entry.detail.length > 60 ? '...' : ''}</div>` : ''}
-    ${tagsHtml ? `<div class="cmp-tags">${tagsHtml}</div>` : ''}
+    <div class="cmp-entry-body">
+      <div class="cmp-entry-author">${avatar(user, 'avatar-xs')} <span>${escHtml(user.username)}</span></div>
+      <div class="cmp-date">${formatDate(entry.entry_date)}</div>
+      <div class="cmp-title">${escHtml(entry.title)}</div>
+      ${entry.detail ? `<div class="cmp-detail">${escHtml(entry.detail.slice(0, 60))}${entry.detail.length > 60 ? '...' : ''}</div>` : ''}
+      ${tagsHtml ? `<div class="cmp-tags">${tagsHtml}</div>` : ''}
+    </div>
+    ${entry.image_url ? `<img src="${escHtml(entry.image_url)}" class="cmp-entry-thumb" alt="">` : ''}
   </div>`;
 }
 
@@ -548,11 +550,13 @@ function _cmpEntryCard(entry) {
     `<span class="cmp-tag" style="background:${t.color}14;color:${t.color};border-color:${t.color}30">${escHtml(t.name)}</span>`
   ).join('');
   return `<div class="cmp-entry" onclick="showEntryDetail('${entry.id}')">
-    ${entry.image_url ? `<img src="${escHtml(entry.image_url)}" style="width:100%;height:70px;object-fit:cover;border-radius:4px;margin-bottom:6px">` : ''}
-    <div class="cmp-date">${formatDate(entry.entry_date)}</div>
-    <div class="cmp-title">${escHtml(entry.title)}</div>
-    ${entry.detail ? `<div class="cmp-detail">${escHtml(entry.detail.slice(0, 60))}${entry.detail.length > 60 ? '...' : ''}</div>` : ''}
-    ${tagsHtml ? `<div class="cmp-tags">${tagsHtml}</div>` : ''}
+    <div class="cmp-entry-body">
+      <div class="cmp-date">${formatDate(entry.entry_date)}</div>
+      <div class="cmp-title">${escHtml(entry.title)}</div>
+      ${entry.detail ? `<div class="cmp-detail">${escHtml(entry.detail.slice(0, 60))}${entry.detail.length > 60 ? '...' : ''}</div>` : ''}
+      ${tagsHtml ? `<div class="cmp-tags">${tagsHtml}</div>` : ''}
+    </div>
+    ${entry.image_url ? `<img src="${escHtml(entry.image_url)}" class="cmp-entry-thumb" alt="">` : ''}
   </div>`;
 }
 
