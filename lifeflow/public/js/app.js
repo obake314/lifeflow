@@ -140,9 +140,10 @@ function _renderFeedView() {
   const { me, following } = window._feedData;
   const hiddenTags = window._feedHiddenTags;
 
-  const myAllTags = [...new Map(me.entries.flatMap(e => e.tags||[]).map(t => [t.id, t])).values()];
+  // 公式アカウントを除外（自分史との比較には一般フォロワーのみ）
+  const normalFollowing = following.filter(u => !u.is_official);
 
-  // カテゴリチップ（左カラムフィルター）
+  const myAllTags = [...new Map(me.entries.flatMap(e => e.tags||[]).map(t => [t.id, t])).values()];
   const catChips = myAllTags.map(t => {
     const off = hiddenTags.has(t.id);
     return `<button class="cat-chip ${off ? 'chip-off' : 'chip-on'}"
@@ -150,48 +151,48 @@ function _renderFeedView() {
       ${off ? '✕' : '✓'} ${escHtml(t.name)}</button>`;
   }).join('');
 
-  // カラム1: 自分史
-  const myFiltered = hiddenTags.size === 0
+  const myEntries = hiddenTags.size === 0
     ? me.entries
     : me.entries.filter(e => !(e.tags||[]).some(t => hiddenTags.has(t.id)));
 
-  const myCol = `
-    <div class="compare-col col-mine feed-col">
-      <div class="compare-col-header">
-        ${avatar(me, 'avatar-xs')}
-        <span class="col-header-name">自分史</span>
-      </div>
-      ${myAllTags.length ? `<div class="col-category-filter" style="padding:8px 12px 0;display:flex;gap:4px;flex-wrap:wrap">${catChips}</div>` : ''}
-      <div class="compare-col-entries">
-        ${myFiltered.length
-          ? myFiltered.map(_cmpEntryCard).join('')
-          : '<div class="col-empty">エントリーがありません</div>'}
-      </div>
-    </div>`;
+  const followerEntries = normalFollowing
+    .flatMap(u => u.entries.map(e => ({ ...e, _user: u })));
 
-  // カラム2: フォロワー史（一般＋公式を時系列統合）
-  const followerEntries = following
-    .flatMap(u => u.entries.map(e => ({ ...e, _user: u })))
-    .sort((a, b) => a.entry_date.localeCompare(b.entry_date));
+  // 年ごとにグループ化して横並び比較
+  const getYear = e => e.entry_date.slice(0, 4);
+  const allYears = [...new Set([
+    ...myEntries.map(getYear),
+    ...followerEntries.map(getYear)
+  ])].sort().reverse();
 
-  const followerCol = `
-    <div class="compare-col col-header-normal feed-col">
-      <div class="compare-col-header col-header-normal">
-        <span class="col-header-name" style="color:var(--text)">フォロワー史</span>
-        <span class="col-header-count">${following.length}人</span>
-      </div>
-      <div class="compare-col-entries">
-        ${followerEntries.length
-          ? followerEntries.map(e => _cmpEntryCardWithUser(e, e._user)).join('')
-          : '<div class="col-empty">フォロー中のユーザーがいないか、エントリーがありません</div>'}
-      </div>
-    </div>`;
+  const myByYear = {};
+  myEntries.forEach(e => { const y = getYear(e); (myByYear[y] ??= []).push(e); });
+  const folByYear = {};
+  followerEntries.forEach(e => { const y = getYear(e); (folByYear[y] ??= []).push(e); });
+
+  const rows = allYears.map(year => `
+    <div class="feed-year-row">
+      <div class="feed-year-lbl">${year}</div>
+      <div class="feed-year-mine">${(myByYear[year]||[]).map(_cmpEntryCard).join('')}</div>
+      <div class="feed-year-fol">${(folByYear[year]||[]).map(e => _cmpEntryCardWithUser(e, e._user)).join('')}</div>
+    </div>`).join('');
 
   setMain(`
-    <div class="compare-page">
-      <div class="compare-columns-wrap feed-two-col">
-        ${myCol}
-        ${followerCol}
+    <div class="compare-page feed-page">
+      <div class="feed-head">
+        <div class="feed-head-spacer"></div>
+        <div class="feed-head-col col-mine">
+          ${avatar(me, 'avatar-xs')}
+          <span>自分史</span>
+          ${catChips ? `<span class="feed-chip-row">${catChips}</span>` : ''}
+        </div>
+        <div class="feed-head-col">
+          <span>フォロワー史</span>
+          <span class="col-header-count">${normalFollowing.length}人</span>
+        </div>
+      </div>
+      <div class="feed-timeline">
+        ${rows || '<p class="col-empty" style="padding:32px;text-align:center">エントリーがありません</p>'}
       </div>
     </div>`);
 }
