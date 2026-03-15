@@ -261,22 +261,18 @@ function renderLanding() {
     </div>
     <div class="landing-features">
       <div class="feature-card">
-        <div class="feature-line"></div>
         <div class="feature-title">年表を作る</div>
         <div class="feature-desc">タイトル・詳細・画像で出来事を記録できます。</div>
       </div>
       <div class="feature-card">
-        <div class="feature-line"></div>
         <div class="feature-title">タグで整理</div>
         <div class="feature-desc">仕事・家族・趣味など、カテゴリ別に管理。</div>
       </div>
       <div class="feature-card">
-        <div class="feature-line"></div>
         <div class="feature-title">公開範囲</div>
         <div class="feature-desc">エントリーごとに公開・非公開を設定できます。</div>
       </div>
       <div class="feature-card">
-        <div class="feature-line"></div>
         <div class="feature-title">比較タイムライン</div>
         <div class="feature-desc">日本史・アメリカ史など、歴史と自分史を並べて見られます。</div>
       </div>
@@ -761,11 +757,11 @@ function _openExportModal() {
             <div class="export-template-desc">活動・作品・経歴をまとめたアーティスト向け略歴</div>
           </div>
         </button>
-        <button class="export-template-card" onclick="_exportAs('wedding')">
+        <button class="export-template-card" onclick="_openWeddingPartnerPicker()">
           <div class="export-template-icon">💒</div>
           <div class="export-template-info">
             <div class="export-template-title">結婚式 経歴書</div>
-            <div class="export-template-desc">生い立ちから現在までを温かみのある形式でまとめた式典用プロフィール</div>
+            <div class="export-template-desc">パートナーを選んで2人分の経歴書を生成。式典用プロフィール</div>
           </div>
         </button>
       </div>
@@ -785,15 +781,78 @@ async function _exportAs(type) {
   if (!entries.length) {
     try { entries = await API.getUserEntries(username); } catch { entries = []; }
   }
-  // 日付昇順
   entries = [...entries].sort((a, b) => (a.entry_date || '').localeCompare(b.entry_date || ''));
 
-  const doc = type === 'resume'  ? _buildResumeHtml(profile, entries)
-            : type === 'artist'  ? _buildArtistHtml(profile, entries)
-            :                      _buildWeddingHtml(profile, entries);
+  const doc = type === 'resume' ? _buildResumeHtml(profile, entries)
+                                : _buildArtistHtml(profile, entries);
   const win = window.open('', '_blank');
   win.document.write(doc);
   win.document.close();
+}
+
+function _openWeddingPartnerPicker() {
+  const box = document.querySelector('#exportModalOverlay .modal-box');
+  if (!box) return;
+  box.innerHTML = `
+    <div class="modal-header">
+      <div style="display:flex;align-items:center;gap:8px">
+        <button class="btn btn-ghost btn-sm" style="padding:4px 8px" onclick="_openExportModal()">← 戻る</button>
+        <h3 class="modal-title" style="margin:0">パートナーを選択</h3>
+      </div>
+      <button class="modal-close" onclick="document.getElementById('exportModalOverlay').remove()">✕</button>
+    </div>
+    <p class="export-modal-desc">一緒に経歴書を作成するユーザーを選んでください。</p>
+    <div class="form-group" style="margin-bottom:10px">
+      <input type="search" id="weddingPartnerSearch" class="search-input" style="border-radius:8px"
+        placeholder="ユーザー名で検索..."
+        oninput="_debounceWeddingSearch()" autocomplete="off">
+    </div>
+    <div id="weddingPartnerResults" style="max-height:260px;overflow-y:auto"></div>`;
+}
+
+let _weddingSearchTimer;
+function _debounceWeddingSearch() {
+  clearTimeout(_weddingSearchTimer);
+  _weddingSearchTimer = setTimeout(_execWeddingSearch, 280);
+}
+async function _execWeddingSearch() {
+  const q   = document.getElementById('weddingPartnerSearch')?.value.trim();
+  const el  = document.getElementById('weddingPartnerResults');
+  if (!el) return;
+  if (!q) { el.innerHTML = ''; return; }
+  el.innerHTML = '<div style="padding:12px;color:#999;font-size:13px">検索中...</div>';
+  try {
+    const users = await API.searchUsers(q);
+    const me    = window._currentUser?.username;
+    const list  = users.filter(u => u.username !== me);
+    if (!list.length) { el.innerHTML = '<div style="padding:12px;color:#999;font-size:13px">見つかりませんでした</div>'; return; }
+    el.innerHTML = list.map(u => `
+      <button class="export-template-card" style="margin-bottom:6px" onclick="_exportWedding('${escHtml(u.username)}')">
+        <div class="export-template-icon" style="font-size:16px">${(u.username||'?')[0].toUpperCase()}</div>
+        <div class="export-template-info">
+          <div class="export-template-title">${escHtml(u.username)}</div>
+          ${u.bio ? `<div class="export-template-desc">${escHtml(u.bio)}</div>` : ''}
+        </div>
+      </button>`).join('');
+  } catch { el.innerHTML = '<div style="padding:12px;color:#c00;font-size:13px">取得に失敗しました</div>'; }
+}
+
+async function _exportWedding(partnerUsername) {
+  document.getElementById('exportModalOverlay')?.remove();
+  const myUsername = window._state?.username || window._currentUser?.username;
+  try {
+    const [myProfile, myEntries, partnerProfile, partnerEntries] = await Promise.all([
+      API.getProfile(myUsername, window._currentUser?.id).catch(() => ({ username: myUsername, bio: '' })),
+      (window._profileEntries?.length ? Promise.resolve(window._profileEntries) : API.getUserEntries(myUsername).catch(() => [])),
+      API.getProfile(partnerUsername, window._currentUser?.id).catch(() => ({ username: partnerUsername, bio: '' })),
+      API.getUserEntries(partnerUsername).catch(() => [])
+    ]);
+    const sort = arr => [...arr].sort((a, b) => (a.entry_date || '').localeCompare(b.entry_date || ''));
+    const doc = _buildWeddingHtml(myProfile, sort(myEntries), partnerProfile, sort(partnerEntries));
+    const win = window.open('', '_blank');
+    win.document.write(doc);
+    win.document.close();
+  } catch (e) { toast('エクスポートに失敗しました', 'error'); }
 }
 
 // --- 共通ヘルパー ---
@@ -927,51 +986,65 @@ function _buildArtistHtml(profile, entries) {
 }
 
 // ===== 3. 結婚式 経歴書 =====
-function _buildWeddingHtml(profile, entries) {
-  const years = _groupByYear(entries);
-  const timeline = years.map(([y, es]) => `
-    <div class="w-year">
-      <div class="w-year-label">${y}</div>
-      <ul class="w-list">
-        ${es.map(e => `
-          <li>
-            <span class="w-date">${_fmtDate(e.entry_date,'ym')}</span>
-            <span class="w-title">${e.title}</span>
-            ${e.detail ? `<span class="w-detail">— ${e.detail}</span>` : ''}
-          </li>`).join('')}
-      </ul>
-    </div>`).join('');
+function _buildWeddingHtml(profileA, entriesA, profileB, entriesB) {
+  function timeline(entries) {
+    return _groupByYear(entries).map(([y, es]) => `
+      <div class="w-year">
+        <div class="w-year-label">${y}</div>
+        <ul class="w-list">
+          ${es.map(e => `
+            <li>
+              <span class="w-date">${_fmtDate(e.entry_date,'ym')}</span>
+              <span class="w-title">${e.title}</span>
+              ${e.detail ? `<span class="w-detail">— ${e.detail}</span>` : ''}
+            </li>`).join('')}
+        </ul>
+      </div>`).join('') || '<p style="color:#999;font-size:9pt">エントリーがありません</p>';
+  }
 
   return `<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8">
-    <title>経歴書 — ${profile.username}</title>
+    <title>経歴書 — ${profileA.username} & ${profileB.username}</title>
     <style>
       ${_baseStyles('#b48fc8')}
       body { font-size: 10.5pt; }
-      .w-cover { text-align: center; padding: 40px 0 36px; }
-      .w-cover .label { font-size: 9pt; letter-spacing: .2em; color: #b48fc8; margin-bottom: 16px; }
-      .w-cover h1 { font-size: 26pt; font-weight: 700; color: #3a2a4a; letter-spacing: .05em; }
-      .w-cover .bio { margin-top: 12px; color: #666; font-size: 10pt; max-width: 500px;
-                      margin-left: auto; margin-right: auto; line-height: 1.8; }
-      .w-divider { text-align: center; margin: 8px 0 32px; color: #c9aad8; font-size: 14pt; letter-spacing: .5em; }
-      h2 { color: #8c6aaa; border-bottom-color: #c9aad8; }
-      .w-year { display: flex; gap: 20px; margin-bottom: 20px; }
-      .w-year-label { width: 52px; flex-shrink: 0; font-weight: 700; color: #b48fc8; padding-top: 3px; }
-      .w-list { list-style: none; margin: 0; padding: 0; border-left: 1px dashed #dcc8e8; padding-left: 16px; flex: 1; }
-      .w-list li { margin-bottom: 7px; }
-      .w-date { color: #888; font-size: 9pt; margin-right: 8px; }
+      .w-cover { text-align: center; padding: 40px 0 28px; }
+      .w-cover .label { font-size: 9pt; letter-spacing: .2em; color: #b48fc8; margin-bottom: 14px; }
+      .w-cover .names { font-size: 24pt; font-weight: 700; color: #3a2a4a; letter-spacing: .04em; }
+      .w-cover .amp   { color: #c9aad8; margin: 0 16px; }
+      .w-cover .bio   { margin-top: 8px; color: #666; font-size: 9.5pt; line-height: 1.7; }
+      .w-divider { text-align: center; margin: 6px 0 28px; color: #c9aad8; font-size: 14pt; letter-spacing: .5em; }
+      .w-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; }
+      .w-col-name { font-size: 13pt; font-weight: 700; color: #8c6aaa; border-bottom: 1px solid #dcc8e8;
+                    padding-bottom: 6px; margin-bottom: 16px; }
+      .w-year { display: flex; gap: 14px; margin-bottom: 16px; }
+      .w-year-label { width: 44px; flex-shrink: 0; font-weight: 700; color: #b48fc8; font-size: 9.5pt; padding-top: 2px; }
+      .w-list { list-style: none; margin: 0; padding: 0; border-left: 1px dashed #dcc8e8; padding-left: 12px; flex: 1; }
+      .w-list li { margin-bottom: 6px; }
+      .w-date  { color: #888; font-size: 8.5pt; margin-right: 6px; }
       .w-title { font-weight: 600; color: #3a2a4a; }
-      .w-detail { color: #666; font-size: 9pt; margin-left: 6px; }
+      .w-detail { color: #666; font-size: 8.5pt; margin-left: 5px; }
+      @media print { .w-cols { gap: 20px; } }
     </style></head><body>
     <div class="page">
       <button class="print-btn" onclick="window.print()">印刷 / PDF保存</button>
       <div class="w-cover">
-        <div class="label">PROFILE</div>
-        <h1>${profile.username}</h1>
-        ${profile.bio ? `<p class="bio">${profile.bio}</p>` : ''}
+        <div class="label">WEDDING PROFILE</div>
+        <div class="names">
+          ${profileA.username}<span class="amp">&</span>${profileB.username}
+        </div>
+        ${profileA.bio || profileB.bio ? `<p class="bio">${[profileA.bio, profileB.bio].filter(Boolean).join('　/　')}</p>` : ''}
       </div>
       <div class="w-divider">✦ ✦ ✦</div>
-      <h2>生涯のあゆみ</h2>
-      ${timeline || '<p style="color:#999">エントリーがありません</p>'}
+      <div class="w-cols">
+        <div>
+          <div class="w-col-name">${profileA.username}</div>
+          ${timeline(entriesA)}
+        </div>
+        <div>
+          <div class="w-col-name">${profileB.username}</div>
+          ${timeline(entriesB)}
+        </div>
+      </div>
     </div>
   </body></html>`;
 }
