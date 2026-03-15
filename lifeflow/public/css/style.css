@@ -1338,6 +1338,55 @@ body {
   padding: 32px 12px;
 }
 
+/* ===== エクスポートモーダル ===== */
+.export-modal { max-width: 480px; }
+.export-modal-desc {
+  font-size: 13px;
+  color: var(--text-2);
+  margin: 0 0 16px;
+  line-height: 1.5;
+}
+.export-template-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.export-template-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  padding: 14px 16px;
+  background: var(--bg-2);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius);
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+  transition: border-color .15s, background .15s;
+}
+.export-template-card:hover {
+  border-color: #8397FE;
+  background: #f5f4ff;
+}
+.export-template-icon {
+  font-size: 22px;
+  flex-shrink: 0;
+  width: 36px;
+  text-align: center;
+}
+.export-template-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-1);
+  margin-bottom: 3px;
+}
+.export-template-desc {
+  font-size: 11px;
+  color: var(--text-3);
+  line-height: 1.4;
+}
+
 /* ===== 検索ページ ===== */
 .search-page {
   display: flex;
