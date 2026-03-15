@@ -427,7 +427,8 @@ body {
 .tag-dd-menu {
   position: absolute;
   top: calc(100% + 4px);
-  left: 0; right: 0;
+  left: 0;
+  min-width: 100%;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
@@ -439,7 +440,7 @@ body {
 .tag-dd-item {
   display: flex;
   align-items: center;
-  width: 100%;
+  min-width: max-content;
   gap: 8px;
   padding: 8px 12px;
   cursor: pointer;
@@ -1104,42 +1105,24 @@ body {
   overflow: hidden;
 }
 
-/* シングルスクロールコンテナ */
 .feed-scroll {
   flex: 1;
   min-height: 0;
-  overflow: auto;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
-/* ヘッダー行: 縦にstickyで固定 */
+/* ヘッダー: 2列グリッド・縦sticky */
 .feed-head {
   position: sticky;
   top: 0;
   z-index: 20;
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
   border-bottom: 2px solid var(--border);
-  background: var(--surface);
-}
-
-/* ヘッダーの左2列（年+自分史）: 横にもstickyで固定 */
-.feed-head-left {
-  position: sticky;
-  left: 0;
-  z-index: 21;
-  display: flex;
-  width: 224px;
-  flex-shrink: 0;
-  background: var(--surface);
-}
-.feed-head-year {
-  width: 44px;
-  flex-shrink: 0;
-  background: var(--surface-3);
-  border-right: 1px solid var(--border);
 }
 .feed-head-mine {
-  flex: 1;
-  padding: 8px 10px;
+  padding: 8px 12px;
   display: flex;
   align-items: center;
   gap: 6px;
@@ -1147,92 +1130,88 @@ body {
   font-weight: 700;
   background: var(--navy-800);
   color: #fff;
-  white-space: nowrap;
-  overflow: visible;
 }
 .feed-head-fol {
-  flex: 1;
-  padding: 8px 10px;
+  padding: 8px 12px;
   display: flex;
   align-items: center;
   gap: 6px;
   font-size: 13px;
   font-weight: 700;
-  white-space: nowrap;
-  min-width: 200px;
+  background: var(--surface);
   border-left: 1px solid var(--border);
 }
 
-/* 年ごとの行 */
+/* 年区切り行 */
+.feed-year-sep {
+  padding: 3px 12px;
+  font-size: 10px;
+  font-weight: 800;
+  color: var(--text-3);
+  background: var(--surface-3);
+  border-bottom: 1px solid var(--border);
+  letter-spacing: 0.05em;
+}
+
+/* 年ごとの2列グリッド */
 .feed-year-row {
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
   border-bottom: 1px solid var(--border);
   min-height: 28px;
 }
-
-/* 左2列（年+自分史）: 1つのstickyブロックにまとめて安定させる */
-.feed-left {
-  position: sticky;
-  left: 0;
-  z-index: 5;
-  display: flex;
-  width: 224px;
-  flex-shrink: 0;
-  background: var(--navy-50);
-}
-.feed-year-lbl {
-  width: 44px;
-  flex-shrink: 0;
-  display: flex;
-  align-items: flex-start;
-  justify-content: center;
-  padding: 6px 2px;
-  font-size: 10px;
-  font-weight: 700;
-  color: var(--text-3);
-  background: var(--surface-3);
-  border-right: 1px solid var(--border);
-  text-align: center;
-  word-break: break-all;
-}
 .feed-year-mine {
-  flex: 1;
-  padding: 6px 8px;
+  padding: 8px 10px;
   display: flex;
   flex-direction: column;
   gap: 6px;
+  background: var(--navy-50);
   border-right: 1px solid var(--border);
   min-width: 0;
 }
 .feed-year-fol {
-  flex: 1;
-  padding: 6px 8px;
+  padding: 8px 10px;
   display: flex;
   flex-direction: column;
   gap: 6px;
-  min-width: 200px;
+  min-width: 0;
 }
 
-/* ヘッダー内絞り込みボタン（モーダルを開く） */
+/* フィルターアイコンボタン */
 .feed-filter-btn {
-  font-size: 11px;
-  padding: 3px 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 3px 7px;
   border-radius: 12px;
-  border: 1px solid rgba(255,255,255,.3);
+  border: 1px solid rgba(255,255,255,.35);
   background: rgba(255,255,255,.12);
   color: #fff;
   cursor: pointer;
-  white-space: nowrap;
   font-family: inherit;
+  font-size: 10px;
+  font-weight: 600;
   flex-shrink: 0;
+  line-height: 1;
 }
-.feed-filter-btn:hover { background: rgba(255,255,255,.22); }
+.feed-filter-btn:hover { background: rgba(255,255,255,.24); }
 .feed-filter-btn-light {
   border-color: var(--border);
-  background: var(--surface);
-  color: var(--text);
+  background: var(--surface-3);
+  color: var(--text-2);
 }
-.feed-filter-btn-light:hover { background: var(--surface-3); }
+.feed-filter-btn-light:hover { background: var(--border); }
+.feed-filter-btn.is-active { background: rgba(255,255,255,.28); }
+.feed-filter-btn-light.is-active { background: var(--navy-100); border-color: var(--navy-300); color: var(--navy-700); }
+
+/* フォロワー（一般）カード */
+.cmp-entry { background: var(--surface); }
+
+/* 公式アカウントカード */
+.cmp-entry--official {
+  background: #fdf8ed;
+  border-color: #e6d48a !important;
+}
 
 /* 絞り込みモーダルのリスト項目 */
 .filter-modal-item {

@@ -167,18 +167,23 @@ function _feedToggleFollower(userId) {
     el.style.display = wasHidden ? '' : 'none';
   });
 
-  // ボタンラベル更新
+  // フィルターボタンのバッジを更新
   const total  = window._feedData.following.length;
   const hidden = window._feedHiddenFollowers.size;
-  const btn = document.querySelector('.feed-head-fol .feed-filter-btn');
-  if (btn) btn.textContent = hidden ? `絞り込み中 (${total - hidden}/${total})` : '絞り込み';
+  const btn = document.getElementById('feedFolFilterBtn');
+  if (btn) {
+    btn.classList.toggle('is-active', hidden > 0);
+    const badge = btn.querySelector('.feed-filter-badge');
+    if (badge) badge.textContent = hidden ? `${total - hidden}/${total}` : '';
+  }
 }
 
 // フォロワー史用スリムカード（ユーザー名・タイトル・画像のみ）
 function _cmpFollowerCardSlim(entry, user) {
-  return `<div class="cmp-entry" data-uid="${user.id}" onclick="showEntryDetail('${entry.id}')">
+  const cls = user.is_official ? 'cmp-entry cmp-entry--official' : 'cmp-entry';
+  return `<div class="${cls}" data-uid="${user.id}" onclick="showEntryDetail('${entry.id}')">
     <div class="cmp-entry-body">
-      <div class="cmp-entry-author">${avatar(user, 'avatar-xs')} <span>${escHtml(user.username)}</span></div>
+      <div class="cmp-entry-author">${avatar(user, 'avatar-xs')} <span>${escHtml(user.username)}</span>${user.is_official ? ' <span class="official-badge" style="font-size:9px">公式</span>' : ''}</div>
       <div class="cmp-title">${escHtml(entry.title)}</div>
     </div>
     ${entry.image_url ? `<img src="${escHtml(entry.image_url)}" class="cmp-entry-thumb" alt="">` : ''}
@@ -198,31 +203,32 @@ function _renderFeedView() {
     ? me.entries
     : me.entries.filter(e => !(e.tags||[]).some(t => hiddenTags.has(t.id)));
 
+  // 公式アカウントは1980年以前のエントリーを除外
   const followerEntries = normalFollowing
     .filter(u => !hiddenFollowers.has(String(u.id)))
-    .flatMap(u => u.entries.map(e => ({ ...e, _user: u })));
+    .flatMap(u => u.entries
+      .filter(e => !u.is_official || e.entry_date >= '1980-01-01')
+      .map(e => ({ ...e, _user: u })));
 
-  // 年ごとにグループ化して横並び比較
   const getYear = e => e.entry_date.slice(0, 4);
   const allYears = [...new Set([
     ...myEntries.map(getYear),
     ...followerEntries.map(getYear)
   ])].sort().reverse();
 
-  const myByYear = {};
-  myEntries.forEach(e => { const y = getYear(e); (myByYear[y] ??= []).push(e); });
+  const myByYear  = {};
+  myEntries.forEach(e => { const y = getYear(e); (myByYear[y]  ??= []).push(e); });
   const folByYear = {};
   followerEntries.forEach(e => { const y = getYear(e); (folByYear[y] ??= []).push(e); });
 
-  const tagBtnLabel  = hiddenTags.size      ? `絞り込み中 (${myAllTags.length - hiddenTags.size}/${myAllTags.length})` : '絞り込み';
-  const folBtnLabel  = hiddenFollowers.size ? `絞り込み中 (${normalFollowing.length - hiddenFollowers.size}/${normalFollowing.length})` : '絞り込み';
+  const filterIcon = `<svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><line x1="1" y1="3" x2="11" y2="3"/><line x1="3" y1="6" x2="9" y2="6"/><line x1="5" y1="9" x2="7" y2="9"/></svg>`;
+  const tagActive  = hiddenTags.size > 0;
+  const folActive  = hiddenFollowers.size > 0;
 
   const rows = allYears.map(year => `
+    <div class="feed-year-sep">${year}</div>
     <div class="feed-year-row">
-      <div class="feed-left">
-        <div class="feed-year-lbl">${year}</div>
-        <div class="feed-year-mine">${(myByYear[year]||[]).map(_cmpEntryCard).join('')}</div>
-      </div>
+      <div class="feed-year-mine">${(myByYear[year]||[]).map(_cmpEntryCard).join('')}</div>
       <div class="feed-year-fol">${(folByYear[year]||[]).map(e => _cmpFollowerCardSlim(e, e._user)).join('')}</div>
     </div>`).join('');
 
@@ -230,17 +236,14 @@ function _renderFeedView() {
     <div class="compare-page feed-page">
       <div class="feed-scroll">
         <div class="feed-head">
-          <div class="feed-head-left">
-            <div class="feed-head-year"></div>
-            <div class="feed-head-mine">
-              ${avatar(me, 'avatar-xs')}
-              <span>自分史</span>
-              ${myAllTags.length ? `<button class="feed-filter-btn" onclick="openFeedTagModal()">${tagBtnLabel}</button>` : ''}
-            </div>
+          <div class="feed-head-mine">
+            ${avatar(me, 'avatar-xs')}
+            <span>自分史</span>
+            ${myAllTags.length ? `<button class="feed-filter-btn${tagActive ? ' is-active' : ''}" onclick="openFeedTagModal()">${filterIcon}${tagActive ? `<span>${myAllTags.length - hiddenTags.size}/${myAllTags.length}</span>` : ''}</button>` : ''}
           </div>
           <div class="feed-head-fol">
             <span>フォロワー史</span>
-            ${normalFollowing.length ? `<button class="feed-filter-btn feed-filter-btn-light" onclick="openFeedFollowerModal()">${folBtnLabel}</button>` : ''}
+            ${normalFollowing.length ? `<button id="feedFolFilterBtn" class="feed-filter-btn feed-filter-btn-light${folActive ? ' is-active' : ''}" onclick="openFeedFollowerModal()">${filterIcon}<span class="feed-filter-badge">${folActive ? `${normalFollowing.length - hiddenFollowers.size}/${normalFollowing.length}` : ''}</span></button>` : ''}
           </div>
         </div>
         ${rows || '<p style="padding:32px;text-align:center;color:var(--text-3)">エントリーがありません</p>'}
