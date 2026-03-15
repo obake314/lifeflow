@@ -17,6 +17,7 @@ async function init() {
   else if (hash === 'compare')          navigate('compare');
   else if (hash === 'login')            navigate('login');
   else if (hash === 'register')         navigate('register');
+  else if (hash === 'search')           navigate('search');
   else                                  navigate('feed');
 }
 
@@ -33,6 +34,7 @@ function renderNav() {
         <div class="nav-dropdown hidden" id="navDropdown">
           <div class="nav-dropdown-item" onclick="navigate('profile','${escHtml(u.username)}');closeNavMenu()">プロフィール</div>
           <div class="nav-dropdown-item" onclick="navigate('compare');closeNavMenu()">タイムライン比較</div>
+          <div class="nav-dropdown-item" onclick="navigate('search');closeNavMenu()">ユーザー検索</div>
           <div class="nav-dropdown-divider"></div>
           <div class="nav-dropdown-item nav-dropdown-danger" onclick="logout()">ログアウト</div>
         </div>
@@ -62,6 +64,13 @@ function setupSearch() {
   const input    = document.getElementById('searchInput');
   const dropdown = document.getElementById('searchResults');
   let debounce;
+
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Enter') {
+      const q = input.value.trim();
+      if (q) { navigate('search', q); closeSearch(); }
+    }
+  });
 
   input.addEventListener('input', () => {
     clearTimeout(debounce);
@@ -114,6 +123,7 @@ function navigate(page, param) {
   else if (page === 'register')  { location.hash = 'register'; renderRegister(); }
   else if (page === 'following') { renderFollowList(param, 'following'); }
   else if (page === 'followers') { renderFollowList(param, 'followers'); }
+  else if (page === 'search')    { location.hash = 'search'; renderSearch(param || ''); }
 }
 
 // ===== ページ =====
@@ -235,31 +245,69 @@ function _renderFeedView() {
   const tagBtnLabel  = hiddenTags.size      ? `絞り込み中 (${myAllTags.length - hiddenTags.size}/${myAllTags.length})` : '絞り込み';
   const folBtnLabel  = hiddenFollowers.size ? `絞り込み中 (${normalFollowing.length - hiddenFollowers.size}/${normalFollowing.length})` : '絞り込み';
 
-  const rows = allYears.map(year => `
-    <div class="feed-year-row">
-      <div class="feed-year-lbl">${year}</div>
-      <div class="feed-year-mine">${(myByYear[year]||[]).map(_cmpEntryCard).join('')}</div>
-      <div class="feed-year-fol">${(folByYear[year]||[]).map(e => _cmpFollowerCardSlim(e, e._user)).join('')}</div>
+  const frozenRows = allYears.map(year => `
+    <div class="feed-frozen-row" data-year="${year}">
+      <div class="feed-frozen-year">${year}</div>
+      <div class="feed-frozen-mine">${(myByYear[year]||[]).map(_cmpEntryCard).join('')}</div>
+    </div>`).join('');
+
+  const liveRows = allYears.map(year => `
+    <div class="feed-live-row" data-year="${year}">
+      ${(folByYear[year]||[]).map(e => _cmpFollowerCardSlim(e, e._user)).join('')}
     </div>`).join('');
 
   setMain(`
     <div class="compare-page feed-page">
-      <div class="feed-timeline">
-        <div class="feed-head">
-          <div class="feed-head-spacer"></div>
-          <div class="feed-head-col col-mine">
-            ${avatar(me, 'avatar-xs')}
-            <span>自分史</span>
-            ${myAllTags.length ? `<button class="feed-filter-btn" onclick="openFeedTagModal()">${tagBtnLabel}</button>` : ''}
+      <div class="feed-panels">
+        <div class="feed-frozen">
+          <div class="feed-frozen-head">
+            <div class="feed-frozen-year-cell"></div>
+            <div class="feed-frozen-mine-cell">
+              ${avatar(me, 'avatar-xs')}
+              <span>自分史</span>
+              ${myAllTags.length ? `<button class="feed-filter-btn" onclick="openFeedTagModal()">${tagBtnLabel}</button>` : ''}
+            </div>
           </div>
-          <div class="feed-head-col">
+          <div class="feed-frozen-body" id="feedFrozenBody">
+            ${frozenRows || '<p style="padding:32px 8px;text-align:center;font-size:12px;color:var(--text-3)">エントリーなし</p>'}
+          </div>
+        </div>
+        <div class="feed-live">
+          <div class="feed-live-head">
             <span>フォロワー史</span>
             ${normalFollowing.length ? `<button class="feed-filter-btn feed-filter-btn-light" onclick="openFeedFollowerModal()">${folBtnLabel}</button>` : ''}
           </div>
+          <div class="feed-live-body" id="feedLiveBody">
+            ${liveRows || '<p style="padding:32px;text-align:center;font-size:12px;color:var(--text-3)">エントリーなし</p>'}
+          </div>
         </div>
-        ${rows || '<p class="col-empty" style="padding:32px;text-align:center">エントリーがありません</p>'}
       </div>
     </div>`);
+
+  requestAnimationFrame(_setupFeedLayout);
+}
+
+function _setupFeedLayout() {
+  const frozenBody = document.getElementById('feedFrozenBody');
+  const liveBody   = document.getElementById('feedLiveBody');
+  if (!frozenBody || !liveBody) return;
+
+  // 各年の行の高さを揃える
+  const frozenRows = frozenBody.querySelectorAll('.feed-frozen-row');
+  const liveRows   = liveBody.querySelectorAll('.feed-live-row');
+  frozenRows.forEach((fr, i) => {
+    const lr = liveRows[i];
+    if (!lr) return;
+    fr.style.minHeight = '';
+    lr.style.minHeight = '';
+    const h = Math.max(fr.offsetHeight, lr.offsetHeight);
+    fr.style.minHeight = h + 'px';
+    lr.style.minHeight = h + 'px';
+  });
+
+  // 縦スクロール同期
+  liveBody.addEventListener('scroll', () => { frozenBody.scrollTop = liveBody.scrollTop; });
+  frozenBody.addEventListener('scroll', () => { liveBody.scrollTop = frozenBody.scrollTop; });
 }
 
 function renderLanding() {
@@ -579,6 +627,47 @@ function _toggleMyTag(tagId) {
   const s = window._cmpState.myHiddenTags;
   if (s.has(tagId)) s.delete(tagId); else s.add(tagId);
   _renderCompareView();
+}
+
+async function renderSearch(q = '') {
+  setMain(`<div class="container">
+    <div class="page-header">
+      <h1 class="page-title">ユーザー検索</h1>
+    </div>
+    <div class="form-group" style="margin-bottom:16px">
+      <input type="search" id="searchPageInput" placeholder="ユーザー名で検索..."
+        value="${escHtml(q)}"
+        oninput="_debounceSearchPage()"
+        onkeydown="if(event.key==='Enter')_execSearchPage()">
+    </div>
+    <div id="searchPageResults"></div>
+  </div>`);
+  if (q) _execSearchPage();
+}
+
+let _searchPageTimer;
+function _debounceSearchPage() {
+  clearTimeout(_searchPageTimer);
+  _searchPageTimer = setTimeout(_execSearchPage, 300);
+}
+
+async function _execSearchPage() {
+  const input = document.getElementById('searchPageInput');
+  const el    = document.getElementById('searchPageResults');
+  if (!input || !el) return;
+  const q = input.value.trim();
+  if (!q) { el.innerHTML = ''; return; }
+  el.innerHTML = loading();
+  try {
+    const users = await API.searchUsers(q);
+    if (!users.length) {
+      el.innerHTML = '<div class="empty"><div class="empty-icon"></div><p>ユーザーが見つかりません</p></div>';
+      return;
+    }
+    el.innerHTML = `<ul class="user-list">${users.map(u => userListItem(u)).join('')}</ul>`;
+  } catch (e) {
+    el.innerHTML = `<div class="empty"><p>${escHtml(e.message)}</p></div>`;
+  }
 }
 
 async function renderFollowList(username, type) {
