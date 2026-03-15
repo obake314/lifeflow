@@ -160,7 +160,6 @@ function _renderFeedView() {
       <div class="compare-col-header">
         ${avatar(me, 'avatar-xs')}
         <span class="col-header-name">自分史</span>
-        <button class="btn btn-primary btn-sm" style="margin-left:auto;font-size:11px;padding:4px 10px" onclick="openEntryForm()">+ 追加</button>
       </div>
       ${myAllTags.length ? `<div class="col-category-filter" style="padding:8px 12px 0;display:flex;gap:4px;flex-wrap:wrap">${catChips}</div>` : ''}
       <div class="compare-col-entries">
