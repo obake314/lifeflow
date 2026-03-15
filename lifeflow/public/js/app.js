@@ -56,8 +56,6 @@ function closeNavMenu() {
 document.addEventListener('click', () => {
   closeNavMenu();
   document.getElementById('ef-tags-menu')?.classList.add('hidden');
-  document.getElementById('feedTagMenu')?.classList.add('hidden');
-  document.getElementById('feedFolMenu')?.classList.add('hidden');
 });
 
 function setupSearch() {
@@ -140,54 +138,68 @@ async function renderFeed() {
   }
 }
 
-function _feedTagFilterHtml(tags, hiddenTags) {
-  if (!tags.length) return '';
-  const shown = tags.length - hiddenTags.size;
-  const label = hiddenTags.size ? `絞り込み (${shown}/${tags.length})` : '絞り込み';
-  const items = tags.map(t => `
-    <label class="feed-tag-item">
-      <input type="checkbox" ${!hiddenTags.has(t.id) ? 'checked' : ''}
-        onchange="_feedToggleTag(${t.id})">
-      <span class="tag-dot" style="background:${t.color}"></span>
-      ${escHtml(t.name)}
-    </label>`).join('');
-  return `<div class="feed-tag-dd">
-    <button class="feed-tag-btn" onclick="_feedTagBtnToggle(event)">${label} ▾</button>
-    <div class="feed-tag-menu hidden" id="feedTagMenu">${items}</div>
-  </div>`;
+// ===== フィード絞り込みモーダル =====
+function openFeedTagModal() {
+  const { me } = window._feedData;
+  const hiddenTags = window._feedHiddenTags;
+  const tags = [...new Map(me.entries.flatMap(e => e.tags||[]).map(t => [t.id, t])).values()];
+  if (!tags.length) return;
+  showModal(`
+    <button class="modal-close" onclick="closeModal()">&#10005;</button>
+    <h3 style="margin-bottom:12px">タグで絞り込み</h3>
+    ${tags.map(t => `
+      <label class="filter-modal-item">
+        <input type="checkbox" ${!hiddenTags.has(t.id) ? 'checked' : ''}
+          onchange="_feedToggleTag(${t.id})">
+        <span class="tag-dot" style="background:${t.color}"></span>
+        <span>${escHtml(t.name)}</span>
+      </label>`).join('')}
+    <button class="btn btn-primary" style="margin-top:14px;width:100%" onclick="closeModal()">閉じる</button>
+  `);
 }
 
-function _feedTagBtnToggle(e) {
-  e.stopPropagation();
-  document.getElementById('feedTagMenu')?.classList.toggle('hidden');
+function openFeedFollowerModal() {
+  const { following } = window._feedData;
+  const normalFollowing = following.filter(u => !u.is_official);
+  const hiddenFollowers = window._feedHiddenFollowers;
+  if (!normalFollowing.length) return;
+  showModal(`
+    <button class="modal-close" onclick="closeModal()">&#10005;</button>
+    <h3 style="margin-bottom:12px">フォロワーで絞り込み</h3>
+    ${normalFollowing.map(u => `
+      <label class="filter-modal-item">
+        <input type="checkbox" ${!hiddenFollowers.has(u.id) ? 'checked' : ''}
+          onchange="_feedToggleFollower(${u.id})">
+        ${avatar(u, 'avatar-xs')}
+        <span>${escHtml(u.username)}</span>
+      </label>`).join('')}
+    <button class="btn btn-primary" style="margin-top:14px;width:100%" onclick="closeModal()">閉じる</button>
+  `);
 }
 
-function _feedFollowerFilterHtml(followers, hiddenFollowers) {
-  if (!followers.length) return '';
-  const shown = followers.length - hiddenFollowers.size;
-  const label = hiddenFollowers.size ? `表示 (${shown}/${followers.length})` : '絞り込み';
-  const items = followers.map(u => `
-    <label class="feed-tag-item">
-      <input type="checkbox" ${!hiddenFollowers.has(u.id) ? 'checked' : ''}
-        onchange="_feedToggleFollower(${u.id})">
-      ${avatar(u, 'avatar-xs')}
-      <span>${escHtml(u.username)}</span>
-    </label>`).join('');
-  return `<div class="feed-tag-dd">
-    <button class="feed-tag-btn feed-fol-btn" onclick="_feedFolBtnToggle(event)">${label} ▾</button>
-    <div class="feed-tag-menu hidden" id="feedFolMenu">${items}</div>
-  </div>`;
-}
-
-function _feedFolBtnToggle(e) {
-  e.stopPropagation();
-  document.getElementById('feedFolMenu')?.classList.toggle('hidden');
+function _feedToggleTag(tagId) {
+  const id = Number(tagId);
+  if (window._feedHiddenTags.has(id)) window._feedHiddenTags.delete(id);
+  else window._feedHiddenTags.add(id);
+  _renderFeedView();
 }
 
 function _feedToggleFollower(userId) {
-  if (window._feedHiddenFollowers.has(userId)) window._feedHiddenFollowers.delete(userId);
-  else window._feedHiddenFollowers.add(userId);
+  const id = Number(userId);
+  if (window._feedHiddenFollowers.has(id)) window._feedHiddenFollowers.delete(id);
+  else window._feedHiddenFollowers.add(id);
   _renderFeedView();
+}
+
+// フォロワー史用スリムカード（ユーザー名・タイトル・画像のみ）
+function _cmpFollowerCardSlim(entry, user) {
+  return `<div class="cmp-entry" onclick="showEntryDetail('${entry.id}')">
+    <div class="cmp-entry-body">
+      <div class="cmp-entry-author">${avatar(user, 'avatar-xs')} <span>${escHtml(user.username)}</span></div>
+      <div class="cmp-title">${escHtml(entry.title)}</div>
+    </div>
+    ${entry.image_url ? `<img src="${escHtml(entry.image_url)}" class="cmp-entry-thumb" alt="">` : ''}
+  </div>`;
 }
 
 function _renderFeedView() {
@@ -220,11 +232,14 @@ function _renderFeedView() {
   const folByYear = {};
   followerEntries.forEach(e => { const y = getYear(e); (folByYear[y] ??= []).push(e); });
 
+  const tagBtnLabel  = hiddenTags.size      ? `絞り込み中 (${myAllTags.length - hiddenTags.size}/${myAllTags.length})` : '絞り込み';
+  const folBtnLabel  = hiddenFollowers.size ? `絞り込み中 (${normalFollowing.length - hiddenFollowers.size}/${normalFollowing.length})` : '絞り込み';
+
   const rows = allYears.map(year => `
     <div class="feed-year-row">
       <div class="feed-year-lbl">${year}</div>
       <div class="feed-year-mine">${(myByYear[year]||[]).map(_cmpEntryCard).join('')}</div>
-      <div class="feed-year-fol">${(folByYear[year]||[]).map(e => _cmpEntryCardWithUser(e, e._user)).join('')}</div>
+      <div class="feed-year-fol">${(folByYear[year]||[]).map(e => _cmpFollowerCardSlim(e, e._user)).join('')}</div>
     </div>`).join('');
 
   setMain(`
@@ -235,22 +250,16 @@ function _renderFeedView() {
           <div class="feed-head-col col-mine">
             ${avatar(me, 'avatar-xs')}
             <span>自分史</span>
-            ${_feedTagFilterHtml(myAllTags, hiddenTags)}
+            ${myAllTags.length ? `<button class="feed-filter-btn" onclick="openFeedTagModal()">${tagBtnLabel}</button>` : ''}
           </div>
           <div class="feed-head-col">
             <span>フォロワー史</span>
-            ${_feedFollowerFilterHtml(normalFollowing, hiddenFollowers)}
+            ${normalFollowing.length ? `<button class="feed-filter-btn feed-filter-btn-light" onclick="openFeedFollowerModal()">${folBtnLabel}</button>` : ''}
           </div>
         </div>
         ${rows || '<p class="col-empty" style="padding:32px;text-align:center">エントリーがありません</p>'}
       </div>
     </div>`);
-}
-
-function _feedToggleTag(tagId) {
-  if (window._feedHiddenTags.has(tagId)) window._feedHiddenTags.delete(tagId);
-  else window._feedHiddenTags.add(tagId);
-  _renderFeedView();
 }
 
 function renderLanding() {
