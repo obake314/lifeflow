@@ -133,20 +133,20 @@ function openFeedTagModal() {
 
 function openFeedFollowerModal() {
   const { following } = window._feedData;
-  const hiddenFollowers = window._feedHiddenFollowers;
+  const hidden = window._feedHiddenFollowers;
   if (!following.length) return;
   showModal(`
     <button class="modal-close" onclick="closeModal()">&#10005;</button>
     <h3 style="margin-bottom:12px">フォロワーで絞り込み</h3>
     ${following.map(u => `
       <label class="filter-modal-item">
-        <input type="checkbox" ${!hiddenFollowers.has(Number(u.id)) ? 'checked' : ''}
-          onchange="_feedToggleFollower(${u.id})">
+        <input type="checkbox" ${!hidden.has(String(u.id)) ? 'checked' : ''}
+          onchange="_feedToggleFollower('${u.id}')">
         ${avatar(u, 'avatar-xs')}
         <span>${escHtml(u.username)}</span>
         ${u.is_official ? '<span class="official-badge" style="font-size:9px">公式</span>' : ''}
       </label>`).join('')}
-    <button class="btn btn-primary" style="margin-top:14px;width:100%" onclick="closeModal();_renderFeedView()">閉じる</button>
+    <button class="btn btn-primary" style="margin-top:14px;width:100%" onclick="closeModal()">閉じる</button>
   `);
 }
 
@@ -157,14 +157,26 @@ function _feedToggleTag(tagId) {
 }
 
 function _feedToggleFollower(userId) {
-  const id = Number(userId);
-  if (window._feedHiddenFollowers.has(id)) window._feedHiddenFollowers.delete(id);
-  else window._feedHiddenFollowers.add(id);
+  const id = String(userId);
+  const wasHidden = window._feedHiddenFollowers.has(id);
+  if (wasHidden) window._feedHiddenFollowers.delete(id);
+  else           window._feedHiddenFollowers.add(id);
+
+  // DOMを直接更新（再描画なし）
+  document.querySelectorAll(`.cmp-entry[data-uid="${id}"]`).forEach(el => {
+    el.style.display = wasHidden ? '' : 'none';
+  });
+
+  // ボタンラベル更新
+  const total  = window._feedData.following.length;
+  const hidden = window._feedHiddenFollowers.size;
+  const btn = document.querySelector('.feed-head-fol .feed-filter-btn');
+  if (btn) btn.textContent = hidden ? `絞り込み中 (${total - hidden}/${total})` : '絞り込み';
 }
 
 // フォロワー史用スリムカード（ユーザー名・タイトル・画像のみ）
 function _cmpFollowerCardSlim(entry, user) {
-  return `<div class="cmp-entry" onclick="showEntryDetail('${entry.id}')">
+  return `<div class="cmp-entry" data-uid="${user.id}" onclick="showEntryDetail('${entry.id}')">
     <div class="cmp-entry-body">
       <div class="cmp-entry-author">${avatar(user, 'avatar-xs')} <span>${escHtml(user.username)}</span></div>
       <div class="cmp-title">${escHtml(entry.title)}</div>
@@ -187,7 +199,7 @@ function _renderFeedView() {
     : me.entries.filter(e => !(e.tags||[]).some(t => hiddenTags.has(t.id)));
 
   const followerEntries = normalFollowing
-    .filter(u => !hiddenFollowers.has(Number(u.id)))
+    .filter(u => !hiddenFollowers.has(String(u.id)))
     .flatMap(u => u.entries.map(e => ({ ...e, _user: u })));
 
   // 年ごとにグループ化して横並び比較
