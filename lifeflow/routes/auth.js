@@ -1,6 +1,7 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
 const { v4: uuidv4 } = require('uuid');
 const db = require('../database');
 const { authRequired, JWT_SECRET } = require('../middleware/auth');
@@ -62,6 +63,43 @@ router.put('/me', authRequired, (req, res) => {
   db.prepare('UPDATE users SET bio = ?, avatar_url = ? WHERE id = ?').run(bio || '', avatar_url || '', req.user.id);
   const user = db.prepare('SELECT id, username, email, bio, avatar_url, created_at FROM users WHERE id = ?').get(req.user.id);
   res.json(user);
+});
+
+// Forgot password — generate reset token (displayed on screen; email in production)
+router.post('/forgot-password', (req, res) => {
+  const { email } = req.body;
+  if (!email) return res.status(400).json({ error: 'メールアドレスを入力してください' });
+
+  const user = db.prepare('SELECT id FROM users WHERE email = ?').get(email);
+  if (!user) {
+    // 存在を明かさない（セキュリティ対策）
+    return res.json({ message: 'ok' });
+  }
+
+  const token = crypto.randomBytes(32).toString('hex');
+  const expiresAt = new Date(Date.now() + 60 * 60 * 1000).toISOString(); // 1時間有効
+  db.prepare('DELETE FROM password_resets WHERE user_id = ?').run(user.id);
+  db.prepare('INSERT INTO password_resets (token, user_id, expires_at) VALUES (?, ?, ?)').run(token, user.id, expiresAt);
+
+  res.json({ token });
+});
+
+// Reset password — validate token, update password
+router.post('/reset-password', (req, res) => {
+  const { token, password } = req.body;
+  if (!token || !password) return res.status(400).json({ error: '全項目を入力してください' });
+  if (password.length < 6) return res.status(400).json({ error: 'パスワードは6文字以上で入力してください' });
+
+  const reset = db.prepare('SELECT * FROM password_resets WHERE token = ?').get(token);
+  if (!reset || new Date(reset.expires_at) < new Date()) {
+    return res.status(400).json({ error: 'リセットリンクが無効か期限切れです。再度お試しください。' });
+  }
+
+  const hash = bcrypt.hashSync(password, 10);
+  db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(hash, reset.user_id);
+  db.prepare('DELETE FROM password_resets WHERE token = ?').run(token);
+
+  res.json({ message: 'パスワードをリセットしました' });
 });
 
 module.exports = router;

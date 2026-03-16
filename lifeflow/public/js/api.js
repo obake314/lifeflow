@@ -32,6 +32,8 @@ const API = {
   login: (d) => API.post('/auth/login', d),
   me: () => API.get('/auth/me'),
   updateProfile: (d) => API.put('/auth/me', d),
+  forgotPassword: (email) => API.post('/auth/forgot-password', { email }),
+  resetPassword: (token, password) => API.post('/auth/reset-password', { token, password }),
 
   // Timeline
   getTags: () => API.get('/tags'),
