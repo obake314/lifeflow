@@ -326,6 +326,22 @@ body {
   box-shadow: 0 0 0 1px var(--primary);
 }
 
+/* 期間エントリー（end_dateあり）: 丸ドットを縦バーに変える */
+.timeline-entry.entry-span::before {
+  width: 3px;
+  height: calc(100% + 20px);
+  border-radius: 2px;
+  top: 16px;
+  left: -21px;
+  box-shadow: none;
+  border: none;
+  background: #8397FE;
+}
+
+.entry-card--span {
+  border-left: 3px solid #8397FE;
+}
+
 .entry-card {
   background: var(--surface);
   border: 1px solid var(--border);
@@ -1434,6 +1450,78 @@ body {
 .pending-share-from { font-size: 12px; font-weight: 600; color: var(--text); }
 .pending-share-entry { font-size: 12px; color: var(--text-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .pending-share-actions { display: flex; gap: 6px; flex-shrink: 0; }
+
+/* ===== 学校入学提案 ===== */
+.school-suggest {
+  background: #f0f4ff;
+  border: 1px solid #c7d2fe;
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  margin-bottom: 16px;
+}
+.school-suggest-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #3730a3;
+  margin-bottom: 4px;
+}
+.school-suggest-desc {
+  font-size: 12px;
+  color: #6366f1;
+  margin-bottom: 12px;
+}
+.school-suggest-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.school-suggest-card {
+  background: #fff;
+  border: 1px solid #c7d2fe;
+  border-radius: 8px;
+  padding: 12px 14px;
+}
+.school-suggest-card-label {
+  font-size: 13px;
+  font-weight: 700;
+  color: #4338ca;
+  margin-bottom: 10px;
+}
+.school-suggest-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+.school-suggest-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-2);
+}
+.school-suggest-row label {
+  width: 90px;
+  flex-shrink: 0;
+  font-size: 12px;
+  color: var(--text-3);
+}
+.school-suggest-row input[type="date"],
+.school-suggest-row input[type="text"] {
+  flex: 1;
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-size: 12px;
+  font-family: inherit;
+  background: var(--surface);
+  color: var(--text);
+}
+.school-suggest-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
 
 /* ===== toggle-label ===== */
 .toggle-label {

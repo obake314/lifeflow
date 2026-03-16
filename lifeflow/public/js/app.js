@@ -343,7 +343,7 @@ async function renderProfile(username) {
       ${entries.length === 0
         ? `<div class="empty"><div class="empty-icon"></div><h3>まだエントリーがありません</h3>
            ${isSelf ? `<button class="btn btn-primary btn-sm" onclick="openEntryForm()" style="margin-top:12px">最初のエントリーを追加</button>` : ''}</div>`
-        : `<div class="timeline" id="profileTimeline">${entries.map(e => `<div class="timeline-entry">${entryCard(e, isSelf)}</div>`).join('')}</div>`
+        : `<div class="timeline" id="profileTimeline">${entries.map(e => `<div class="timeline-entry${e.end_date ? ' entry-span' : ''}">${entryCard(e, isSelf)}</div>`).join('')}</div>`
       }
       ${isSelf && entries.length > 0 ? `<div style="margin-top:24px;text-align:center"><button class="btn btn-primary btn-sm" onclick="openEntryForm()">+ エントリーを追加</button></div>` : ''}
     </div>`);
@@ -363,6 +363,9 @@ async function renderProfile(username) {
 
     // 自分のプロフィールなら pending 共有リクエストを表示
     if (isSelf) _loadPendingShares();
+
+    // 学校入学提案
+    if (isSelf && profile.birthdate) _renderSchoolSuggestions(profile, entries);
   } catch (e) {
     setMain(`<div class="container"><div class="empty"><div class="empty-icon"></div><p>${escHtml(e.message)}</p></div></div>`);
   }
@@ -406,13 +409,132 @@ async function _respondShare(shareId, accept) {
   } catch (e) { toast(e.message, 'error'); }
 }
 
+// ===== 学校入学提案 =====
+
+/**
+ * 生年月日から小学校・中学校・高校の入学日を算出
+ * 4月2日以降生まれは翌年度入学（日本の就学制度）
+ */
+function _schoolDates(birthdate) {
+  const b = new Date(birthdate);
+  if (isNaN(b)) return null;
+  const year = b.getFullYear();
+  const month = b.getMonth() + 1; // 1-12
+  const day = b.getDate();
+  // 4月2日以降生まれ → +7歳で小学校入学、4月1日以前 → +6歳
+  const offset = (month > 4 || (month === 4 && day >= 2)) ? 7 : 6;
+  const elemYear = year + offset;
+  return [
+    { key: 'elem',   label: '小学校入学',  startDate: `${elemYear}-04-01`, endDate: `${elemYear+6}-03-31` },
+    { key: 'middle', label: '中学校入学',  startDate: `${elemYear+6}-04-01`, endDate: `${elemYear+9}-03-31` },
+    { key: 'high',   label: '高校入学',    startDate: `${elemYear+9}-04-01`, endDate: `${elemYear+12}-03-31` },
+  ];
+}
+
+function _renderSchoolSuggestions(profile, entries) {
+  const uid = profile.id || window._currentUser?.id;
+  if (!uid) return;
+  const storageKey = `lf_school_suggest_${uid}`;
+  const dismissed = JSON.parse(localStorage.getItem(storageKey) || '[]');
+
+  const suggestions = _schoolDates(profile.birthdate);
+  if (!suggestions) return;
+
+  // 既に投稿済みのエントリー（タイトルで簡易マッチ）or 却下済みのもの
+  const postedTitles = new Set(entries.map(e => e.title));
+  const pending = suggestions.filter(s =>
+    !dismissed.includes(s.key) &&
+    !postedTitles.has(s.label)
+  );
+  if (!pending.length) return;
+
+  const container = document.querySelector('.container');
+  if (!container) return;
+
+  const section = document.createElement('div');
+  section.className = 'school-suggest';
+  section.id = 'schoolSuggestSection';
+  section.innerHTML = `
+    <div class="school-suggest-title">入学エントリーの提案</div>
+    <div class="school-suggest-desc">生年月日から以下の入学年月が予測されます。投稿または削除してください。</div>
+    <div class="school-suggest-cards">
+      ${pending.map(s => `
+        <div class="school-suggest-card" data-key="${s.key}">
+          <div class="school-suggest-card-label">${s.label}</div>
+          <div class="school-suggest-fields">
+            <div class="school-suggest-row">
+              <label>入学日</label>
+              <input type="date" class="ss-start" value="${s.startDate}">
+            </div>
+            <div class="school-suggest-row">
+              <label>卒業日</label>
+              <input type="date" class="ss-end" value="${s.endDate}">
+            </div>
+            <div class="school-suggest-row">
+              <label>学校名（任意）</label>
+              <input type="text" class="ss-name" placeholder="例：○○小学校">
+            </div>
+          </div>
+          <div class="school-suggest-actions">
+            <button class="btn btn-sm btn-ghost" onclick="_skipSchoolSuggest('${s.key}')">スキップ</button>
+            <button class="btn btn-sm btn-primary" onclick="_postSchoolSuggest('${s.key}', '${s.label}')">投稿する</button>
+          </div>
+        </div>`).join('')}
+    </div>`;
+
+  // タグフィルター行の前に挿入
+  const tagRow = container.querySelector('#profileTagFilterRow');
+  tagRow ? container.insertBefore(section, tagRow) : container.appendChild(section);
+}
+
+function _skipSchoolSuggest(key) {
+  const uid = window._currentUser?.id;
+  if (!uid) return;
+  const storageKey = `lf_school_suggest_${uid}`;
+  const dismissed = JSON.parse(localStorage.getItem(storageKey) || '[]');
+  if (!dismissed.includes(key)) dismissed.push(key);
+  localStorage.setItem(storageKey, JSON.stringify(dismissed));
+  // カードを削除
+  const card = document.querySelector(`.school-suggest-card[data-key="${key}"]`);
+  if (card) card.remove();
+  // 残りがなければセクション全体を削除
+  if (!document.querySelectorAll('.school-suggest-card').length) {
+    document.getElementById('schoolSuggestSection')?.remove();
+  }
+}
+
+async function _postSchoolSuggest(key, label) {
+  const card = document.querySelector(`.school-suggest-card[data-key="${key}"]`);
+  if (!card) return;
+  const startDate = card.querySelector('.ss-start')?.value;
+  const endDate   = card.querySelector('.ss-end')?.value;
+  const schoolName = card.querySelector('.ss-name')?.value.trim();
+  if (!startDate) { toast('入学日を入力してください', 'error'); return; }
+
+  const title = schoolName ? `${label}（${schoolName}）` : label;
+  try {
+    await API.createEntry({
+      title,
+      detail: schoolName ? `${schoolName}` : '',
+      entry_date: startDate,
+      end_date: endDate || null,
+      visibility: 'public',
+      tag_ids: [],
+      specific_viewer_ids: []
+    });
+    toast('投稿しました', 'success');
+    _skipSchoolSuggest(key); // カードを削除して dismissed に記録
+    navigate('profile', window._currentUser.username);
+  } catch (e) { toast(e.message, 'error'); }
+}
+
 function filterProfile(tagId) {
   document.querySelectorAll('#profileTagFilterRow .tag-filter-btn').forEach(b => b.classList.toggle('active', b.dataset.tag == tagId));
   const entries = window._profileEntries || [];
   const isSelf  = window._currentUser?.username === window._state.username;
   const filtered = tagId === 'all' ? entries : entries.filter(e => (e.tags||[]).some(t => t.id == tagId));
   const el = document.getElementById('profileTimeline');
-  if (el) el.innerHTML = filtered.map(e => `<div class="timeline-entry">${entryCard(e, isSelf)}</div>`).join('');
+  if (el) el.innerHTML = filtered.map(e => `<div class="timeline-entry${e.end_date ? ' entry-span' : ''}">${entryCard(e, isSelf)}</div>`).join('');
 }
 
 async function toggleFollow(username, currentlyFollowing) {

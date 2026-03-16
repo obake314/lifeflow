@@ -36,14 +36,17 @@ function visibilityBadge(v) {
 }
 
 function entryCard(entry, isMine = false) {
-  const dateStr  = formatDate(entry.entry_date);
+  const dateStr  = entry.end_date
+    ? `${formatDate(entry.entry_date)} 〜 ${formatDate(entry.end_date)}`
+    : formatDate(entry.entry_date);
   const age      = ageAt(entry.owner_birthdate, entry.entry_date);
   const ageStr   = (age !== null && entry.owner_show_age) ? `<span class="entry-age">${age}歳</span>` : '';
   const tagsHtml = (entry.tags || []).map(tagHtml).join('');
   const sharedBadge = entry.shared_from_username
     ? `<span class="shared-badge">共有 @${escHtml(entry.shared_from_username)}</span>` : '';
+  const spanClass = entry.end_date ? ' entry-card--span' : '';
 
-  return `<div class="entry-card" data-id="${entry.id}" onclick="showEntryDetail('${entry.id}')">
+  return `<div class="entry-card${spanClass}" data-id="${entry.id}" onclick="showEntryDetail('${entry.id}')">
     ${entry.image_url ? `<img class="entry-image" src="${escHtml(entry.image_url)}" alt="" loading="lazy">` : ''}
     <div class="entry-body">
       <div class="entry-meta">
@@ -204,6 +207,17 @@ async function openEntryForm(entry = null) {
       ${tagDropdownHtml(tags, selectedTagIds)}
     </div>
     <div class="form-row">
+      <label>終了日</label>
+      <div>
+        <label class="toggle-label" style="font-size:12px;font-weight:400">
+          <input type="checkbox" id="ef-enddate-toggle" onchange="_toggleEndDate()" ${entry?.end_date ? 'checked' : ''}>
+          終了日を設定する
+        </label>
+        <input type="date" id="ef-enddate" value="${entry?.end_date ? entry.end_date.slice(0, 10) : ''}"
+          style="margin-top:6px;${entry?.end_date ? '' : 'display:none'}">
+      </div>
+    </div>
+    <div class="form-row">
       <label>公開</label>
       <select id="ef-visibility" onchange="handleVisibilityChange(this.value)">${visibilityOptions}</select>
     </div>
@@ -225,6 +239,12 @@ async function openEntryForm(entry = null) {
 
 function handleVisibilityChange(v) {
   document.getElementById('ef-specificSection')?.classList.toggle('show', v === 'specific');
+}
+
+function _toggleEndDate() {
+  const checked = document.getElementById('ef-enddate-toggle')?.checked;
+  const input = document.getElementById('ef-enddate');
+  if (input) input.style.display = checked ? '' : 'none';
 }
 
 function previewImage(input) {
@@ -268,10 +288,13 @@ async function submitEntryForm(existingId) {
     } catch {}
   }
 
+  const endDateEnabled = document.getElementById('ef-enddate-toggle')?.checked;
+  const end_date = endDateEnabled ? (document.getElementById('ef-enddate')?.value || null) : null;
+
   const payload = {
     title,
     detail: document.getElementById('ef-detail')?.value.trim() || '',
-    image_url, entry_date, visibility, tag_ids, specific_viewer_ids
+    image_url, entry_date, end_date, visibility, tag_ids, specific_viewer_ids
   };
 
   try {
