@@ -62,16 +62,21 @@ db.exec(`
     PRIMARY KEY (entry_id, user_id)
   );
 
-  CREATE TABLE IF NOT EXISTS password_resets (
-    token      TEXT PRIMARY KEY,
-    user_id    TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    expires_at TEXT NOT NULL,
-    created_at TEXT DEFAULT (datetime('now'))
+  CREATE TABLE IF NOT EXISTS entry_shares (
+    id           TEXT PRIMARY KEY,
+    entry_id     TEXT NOT NULL REFERENCES timeline_entries(id) ON DELETE CASCADE,
+    from_user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    to_user_id   TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    status       TEXT DEFAULT 'pending' CHECK(status IN ('pending','accepted','rejected')),
+    created_at   TEXT DEFAULT (datetime('now')),
+    UNIQUE (entry_id, to_user_id)
   );
 `);
 
 // 既存 DB への is_official カラム追加（マイグレーション）
 try { db.exec('ALTER TABLE users ADD COLUMN is_official INTEGER DEFAULT 0'); } catch {}
+try { db.exec("ALTER TABLE users ADD COLUMN birthdate TEXT DEFAULT ''"); } catch {}
+try { db.exec('ALTER TABLE users ADD COLUMN show_age INTEGER DEFAULT 1'); } catch {}
 
 // ===== デフォルトタグ =====
 const seedTag = db.prepare('INSERT OR IGNORE INTO tags (name, color) VALUES (?, ?)');

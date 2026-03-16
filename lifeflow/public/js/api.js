@@ -34,6 +34,9 @@ const API = {
   updateProfile: (d) => API.put('/auth/me', d),
   forgotPassword: (email) => API.post('/auth/forgot-password', { email }),
   resetPassword: (token, password) => API.post('/auth/reset-password', { token, password }),
+  shareEntry: (entryId, username) => API.post(`/entries/${entryId}/share`, { username }),
+  getPendingShares: () => API.get('/shares/pending'),
+  respondShare: (shareId, accept) => API.put(`/shares/${shareId}/respond`, { accept }),
 
   // Timeline
   getTags: () => API.get('/tags'),

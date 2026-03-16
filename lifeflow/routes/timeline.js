@@ -51,22 +51,40 @@ router.post('/tags', authRequired, (req, res) => {
   res.status(201).json(tag);
 });
 
-// Get entries for a user (with visibility filtering)
+// Get entries for a user (with visibility filtering + shared entries)
 router.get('/users/:username/entries', authOptional, (req, res) => {
-  const target = db.prepare('SELECT id FROM users WHERE username = ?').get(req.params.username);
+  const target = db.prepare('SELECT id, birthdate, show_age FROM users WHERE username = ?').get(req.params.username);
   if (!target) return res.status(404).json({ error: 'ユーザーが見つかりません' });
 
   const viewerId = req.user?.id || null;
-  const entries = db.prepare(`
-    SELECT te.*, u.username, u.avatar_url
+
+  // 自分のエントリー
+  const ownEntries = db.prepare(`
+    SELECT te.*, u.username, u.avatar_url,
+           ? AS owner_birthdate, ? AS owner_show_age,
+           NULL AS shared_from_username
     FROM timeline_entries te
     JOIN users u ON u.id = te.user_id
     WHERE te.user_id = ?
     ORDER BY te.entry_date DESC, te.created_at DESC
-  `).all(target.id);
+  `).all(target.birthdate || '', target.show_age ?? 1, target.id).filter(e => canView(e, viewerId));
 
-  const visible = entries.filter(e => canView(e, viewerId));
-  res.json(attachTags(visible));
+  // 共有されたエントリー（承認済み）
+  const sharedEntries = db.prepare(`
+    SELECT te.*, u.username, u.avatar_url,
+           ? AS owner_birthdate, ? AS owner_show_age,
+           from_u.username AS shared_from_username
+    FROM timeline_entries te
+    JOIN users u ON u.id = te.user_id
+    JOIN entry_shares es ON es.entry_id = te.id
+    JOIN users from_u ON from_u.id = es.from_user_id
+    WHERE es.to_user_id = ? AND es.status = 'accepted'
+    ORDER BY te.entry_date DESC
+  `).all(target.birthdate || '', target.show_age ?? 1, target.id).filter(e => canView(e, viewerId));
+
+  const all = [...ownEntries, ...sharedEntries]
+    .sort((a, b) => b.entry_date.localeCompare(a.entry_date));
+  res.json(attachTags(all));
 });
 
 // Get feed
@@ -246,7 +264,7 @@ router.get('/compare/:username', authRequired, (req, res) => {
     FROM timeline_entries te
     JOIN users u ON u.id = te.user_id
     WHERE te.user_id = ?
-    ORDER BY te.entry_date ASC
+    ORDER BY te.entry_date DESC
   `).all(req.user.id);
 
   // Target's visible entries
@@ -255,7 +273,7 @@ router.get('/compare/:username', authRequired, (req, res) => {
     FROM timeline_entries te
     JOIN users u ON u.id = te.user_id
     WHERE te.user_id = ?
-    ORDER BY te.entry_date ASC
+    ORDER BY te.entry_date DESC
   `).all(target.id).filter(e => canView(e, req.user.id));
 
   res.json({
@@ -268,16 +286,29 @@ router.get('/compare/:username', authRequired, (req, res) => {
 
 // Compare-all: 自分 + フォロー中全員のタイムラインを一括取得
 router.get('/compare-all', authRequired, (req, res) => {
-  const me = db.prepare('SELECT id, username, avatar_url, bio FROM users WHERE id = ?').get(req.user.id);
+  const me = db.prepare('SELECT id, username, avatar_url, bio, birthdate, show_age FROM users WHERE id = ?').get(req.user.id);
 
-  const myEntries = db.prepare(`
-    SELECT te.* FROM timeline_entries te
+  const myOwn = db.prepare(`
+    SELECT te.*, NULL AS shared_from_username
+    FROM timeline_entries te
     WHERE te.user_id = ?
-    ORDER BY te.entry_date ASC
+    ORDER BY te.entry_date DESC
   `).all(req.user.id);
 
+  const myShared = db.prepare(`
+    SELECT te.*, from_u.username AS shared_from_username
+    FROM timeline_entries te
+    JOIN entry_shares es ON es.entry_id = te.id
+    JOIN users from_u ON from_u.id = es.from_user_id
+    WHERE es.to_user_id = ? AND es.status = 'accepted'
+    ORDER BY te.entry_date DESC
+  `).all(req.user.id).filter(e => canView(e, req.user.id));
+
+  const myEntries = [...myOwn, ...myShared]
+    .sort((a, b) => b.entry_date.localeCompare(a.entry_date));
+
   const following = db.prepare(`
-    SELECT u.id, u.username, u.avatar_url, u.bio, u.is_official
+    SELECT u.id, u.username, u.avatar_url, u.bio, u.is_official, u.birthdate, u.show_age
     FROM users u
     JOIN follows f ON f.following_id = u.id
     WHERE f.follower_id = ?
@@ -286,9 +317,10 @@ router.get('/compare-all', authRequired, (req, res) => {
 
   const followingWithEntries = following.map(user => {
     const entries = db.prepare(`
-      SELECT te.* FROM timeline_entries te
+      SELECT te.*, NULL AS shared_from_username
+      FROM timeline_entries te
       WHERE te.user_id = ?
-      ORDER BY te.entry_date ASC
+      ORDER BY te.entry_date DESC
     `).all(user.id).filter(e => canView(e, req.user.id));
     return { ...user, entries: attachTags(entries) };
   });
@@ -297,6 +329,59 @@ router.get('/compare-all', authRequired, (req, res) => {
     me: { ...me, entries: attachTags(myEntries) },
     following: followingWithEntries
   });
+});
+
+// ===== 共有イベント =====
+
+// 共有リクエストを送る
+router.post('/entries/:id/share', authRequired, (req, res) => {
+  const entry = db.prepare('SELECT * FROM timeline_entries WHERE id = ?').get(req.params.id);
+  if (!entry) return res.status(404).json({ error: 'エントリーが見つかりません' });
+  if (entry.user_id !== req.user.id) return res.status(403).json({ error: '自分のエントリーのみ共有できます' });
+
+  const { username } = req.body;
+  if (!username) return res.status(400).json({ error: 'ユーザー名を指定してください' });
+
+  const toUser = db.prepare('SELECT id FROM users WHERE username = ?').get(username);
+  if (!toUser) return res.status(404).json({ error: 'ユーザーが見つかりません' });
+  if (toUser.id === req.user.id) return res.status(400).json({ error: '自分自身には共有できません' });
+
+  const { v4: uuidv4 } = require('uuid');
+  const id = uuidv4();
+  try {
+    db.prepare('INSERT INTO entry_shares (id, entry_id, from_user_id, to_user_id) VALUES (?, ?, ?, ?)').run(id, req.params.id, req.user.id, toUser.id);
+    res.json({ message: '共有リクエストを送りました' });
+  } catch (e) {
+    if (e.message?.includes('UNIQUE')) return res.status(409).json({ error: 'すでに共有リクエスト済みです' });
+    throw e;
+  }
+});
+
+// 自分宛の共有リクエスト一覧
+router.get('/shares/pending', authRequired, (req, res) => {
+  const shares = db.prepare(`
+    SELECT es.id, es.status, es.created_at,
+           te.id AS entry_id, te.title, te.entry_date,
+           from_u.username AS from_username, from_u.avatar_url AS from_avatar_url
+    FROM entry_shares es
+    JOIN timeline_entries te ON te.id = es.entry_id
+    JOIN users from_u ON from_u.id = es.from_user_id
+    WHERE es.to_user_id = ? AND es.status = 'pending'
+    ORDER BY es.created_at DESC
+  `).all(req.user.id);
+  res.json(shares);
+});
+
+// 共有リクエストに応答（accept/reject）
+router.put('/shares/:id/respond', authRequired, (req, res) => {
+  const share = db.prepare('SELECT * FROM entry_shares WHERE id = ?').get(req.params.id);
+  if (!share) return res.status(404).json({ error: '共有リクエストが見つかりません' });
+  if (share.to_user_id !== req.user.id) return res.status(403).json({ error: '権限がありません' });
+
+  const { accept } = req.body;
+  const status = accept ? 'accepted' : 'rejected';
+  db.prepare('UPDATE entry_shares SET status = ? WHERE id = ?').run(status, req.params.id);
+  res.json({ status });
 });
 
 module.exports = router;
