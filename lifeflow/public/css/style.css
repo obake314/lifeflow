@@ -54,6 +54,7 @@ body {
   font-size: 14px;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
 }
 
 /* ===== Navbar ===== */
@@ -1543,4 +1544,30 @@ body {
   .compare-col-entries .cmp-entry { padding: 8px; }
   .cmp-entry-title { font-size: 12px; }
   .form-row { grid-template-columns: 48px 1fr; }
+  .landing h1 { font-size: 28px; }
+  .landing { padding: 28px 20px 40px; }
+  .auth-page { padding: 16px; align-items: flex-start; padding-top: 32px; }
+  .auth-card { padding: 24px 20px; }
 }
+
+/* ===== パスワードリセット ===== */
+.forgot-result-box {
+  background: var(--bg-2, #f6f8fc);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 14px;
+  margin-top: 12px;
+}
+.forgot-reset-link {
+  display: block;
+  word-break: break-all;
+  font-size: 11px;
+  color: #8397FE;
+  background: #fff;
+  border: 1px dashed #c5cfe8;
+  border-radius: 4px;
+  padding: 8px 10px;
+  text-decoration: none;
+  margin-top: 6px;
+}
+.forgot-reset-link:hover { text-decoration: underline; }

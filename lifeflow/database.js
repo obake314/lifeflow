@@ -61,6 +61,13 @@ db.exec(`
     user_id  TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     PRIMARY KEY (entry_id, user_id)
   );
+
+  CREATE TABLE IF NOT EXISTS password_resets (
+    token      TEXT PRIMARY KEY,
+    user_id    TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    expires_at TEXT NOT NULL,
+    created_at TEXT DEFAULT (datetime('now'))
+  );
 `);
 
 // 既存 DB への is_official カラム追加（マイグレーション）

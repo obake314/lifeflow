@@ -13,12 +13,14 @@ async function init() {
   setupSearch();
 
   const hash = location.hash.slice(1);
-  if      (hash.startsWith('profile/')) navigate('profile', hash.slice(8));
-  else if (hash === 'compare')          navigate('compare');
-  else if (hash === 'login')            navigate('login');
-  else if (hash === 'register')         navigate('register');
-  else if (hash === 'search')           navigate('search');
-  else                                  navigate('feed');
+  if      (hash.startsWith('profile/'))        navigate('profile', hash.slice(8));
+  else if (hash === 'compare')                 navigate('compare');
+  else if (hash === 'login')                   navigate('login');
+  else if (hash === 'register')                navigate('register');
+  else if (hash === 'search')                  navigate('search');
+  else if (hash === 'forgot-password')         navigate('forgot-password');
+  else if (hash.startsWith('reset-password/')) navigate('reset-password', hash.slice('reset-password/'.length));
+  else                                         navigate('feed');
 }
 
 function renderNav() {
@@ -82,8 +84,10 @@ function navigate(page, param) {
   if      (page === 'feed')      { location.hash = ''; renderFeed(); }
   else if (page === 'profile')   { location.hash = `profile/${param}`; renderProfile(param); }
   else if (page === 'compare')   { location.hash = 'compare'; renderCompare(); }
-  else if (page === 'login')     { location.hash = 'login';    renderLogin(); }
-  else if (page === 'register')  { location.hash = 'register'; renderRegister(); }
+  else if (page === 'login')          { location.hash = 'login';                    renderLogin(); }
+  else if (page === 'register')       { location.hash = 'register';                 renderRegister(); }
+  else if (page === 'forgot-password'){ location.hash = 'forgot-password';          renderForgotPassword(); }
+  else if (page === 'reset-password') { location.hash = `reset-password/${param}`;  renderResetPassword(param); }
   else if (page === 'following') { renderFollowList(param, 'following'); }
   else if (page === 'followers') { renderFollowList(param, 'followers'); }
   else if (page === 'search')    { location.hash = 'search'; window._searchFollowingSet = null; renderSearch(param || ''); }
@@ -1086,7 +1090,10 @@ function renderLogin() {
     </div>
     <div id="loginError" class="form-error"></div>
     <button class="btn btn-primary" style="width:100%;margin-top:10px" onclick="doLogin()">ログイン</button>
-    <p style="text-align:center;margin-top:18px;font-size:12px;color:var(--text-3)">
+    <p style="text-align:center;margin-top:14px;font-size:12px">
+      <a href="#" onclick="navigate('forgot-password')" style="color:var(--text-3)">パスワードをお忘れの方</a>
+    </p>
+    <p style="text-align:center;margin-top:8px;font-size:12px;color:var(--text-3)">
       アカウントをお持ちでない方は <a href="#" onclick="navigate('register')" style="color:var(--primary);font-weight:600">新規登録</a>
     </p>
   </div></div>`);
@@ -1151,6 +1158,83 @@ async function doRegister() {
     renderNav();
     navigate('feed');
     toast('登録が完了しました', 'success');
+  } catch (e) {
+    if (errEl) errEl.textContent = e.message;
+  }
+}
+
+function renderForgotPassword() {
+  setMain(`<div class="auth-page"><div class="auth-card">
+    <h2>パスワードをリセット</h2>
+    <p class="auth-sub">登録済みのメールアドレスを入力してください</p>
+    <div class="form-group">
+      <label>メールアドレス</label>
+      <input type="email" id="forgotEmail" placeholder="you@example.com" autocomplete="email"
+             onkeydown="if(event.key==='Enter')doForgotPassword()">
+    </div>
+    <div id="forgotError" class="form-error"></div>
+    <div id="forgotResult"></div>
+    <button class="btn btn-primary" style="width:100%;margin-top:10px" onclick="doForgotPassword()">リセットリンクを発行</button>
+    <p style="text-align:center;margin-top:18px;font-size:12px;color:var(--text-3)">
+      <a href="#" onclick="navigate('login')" style="color:var(--primary);font-weight:600">← ログインに戻る</a>
+    </p>
+  </div></div>`);
+}
+
+async function doForgotPassword() {
+  const email = document.getElementById('forgotEmail')?.value.trim();
+  const errEl = document.getElementById('forgotError');
+  const resEl = document.getElementById('forgotResult');
+  if (errEl) errEl.textContent = '';
+  try {
+    const data = await API.forgotPassword(email);
+    if (data.token) {
+      const url = `${location.origin}${location.pathname}#reset-password/${data.token}`;
+      resEl.innerHTML = `
+        <div class="forgot-result-box">
+          <p style="margin:0 0 8px;font-weight:600;color:var(--success)">リセットリンクを発行しました</p>
+          <p style="margin:0 0 10px;font-size:12px;color:var(--text-2)">通常はメールで送信されますが、このデモ環境では下のリンクを使用してください。有効期限は1時間です。</p>
+          <a href="${url}" class="forgot-reset-link">${url}</a>
+        </div>`;
+    } else {
+      // メールアドレスが登録されていない場合も同じメッセージ
+      resEl.innerHTML = `<div class="forgot-result-box"><p style="margin:0;color:var(--text-2);font-size:13px">ご入力のメールアドレスが登録されている場合、リセットリンクを送信します。</p></div>`;
+    }
+    document.querySelector('#forgotResult + button, .btn-primary')?.setAttribute('disabled', 'true');
+  } catch (e) {
+    if (errEl) errEl.textContent = e.message;
+  }
+}
+
+function renderResetPassword(token) {
+  if (!token) { navigate('login'); return; }
+  setMain(`<div class="auth-page"><div class="auth-card">
+    <h2>新しいパスワードを設定</h2>
+    <p class="auth-sub">6文字以上で入力してください</p>
+    <div class="form-group">
+      <label>新しいパスワード</label>
+      <input type="password" id="resetPass1" placeholder="新しいパスワード" autocomplete="new-password">
+    </div>
+    <div class="form-group">
+      <label>確認（もう一度）</label>
+      <input type="password" id="resetPass2" placeholder="もう一度入力" autocomplete="new-password"
+             onkeydown="if(event.key==='Enter')doResetPassword('${token}')">
+    </div>
+    <div id="resetError" class="form-error"></div>
+    <button class="btn btn-primary" style="width:100%;margin-top:10px" onclick="doResetPassword('${token}')">パスワードを変更</button>
+  </div></div>`);
+}
+
+async function doResetPassword(token) {
+  const pass1  = document.getElementById('resetPass1')?.value;
+  const pass2  = document.getElementById('resetPass2')?.value;
+  const errEl  = document.getElementById('resetError');
+  if (errEl) errEl.textContent = '';
+  if (pass1 !== pass2) { if (errEl) errEl.textContent = 'パスワードが一致しません'; return; }
+  try {
+    await API.resetPassword(token, pass1);
+    toast('パスワードを変更しました。ログインしてください。', 'success');
+    navigate('login');
   } catch (e) {
     if (errEl) errEl.textContent = e.message;
   }
