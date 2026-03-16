@@ -56,7 +56,7 @@ router.get('/users/:username/following', (req, res) => {
 // Get user profile with follow status
 router.get('/users/:username', (req, res) => {
   const { viewerId } = req.query;
-  const user = db.prepare('SELECT id, username, bio, avatar_url, is_official, created_at FROM users WHERE username = ?').get(req.params.username);
+  const user = db.prepare('SELECT id, username, bio, avatar_url, is_official, birthdate, show_age, created_at FROM users WHERE username = ?').get(req.params.username);
   if (!user) return res.status(404).json({ error: 'ユーザーが見つかりません' });
 
   const followerCount = db.prepare('SELECT COUNT(*) as c FROM follows WHERE following_id = ?').get(user.id).c;
