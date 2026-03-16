@@ -1131,7 +1131,7 @@ body {
   overflow-x: hidden;
 }
 
-/* ヘッダー: 2列グリッド・縦sticky */
+/* ヘッダー: グリッド・縦sticky */
 .feed-head {
   position: sticky;
   top: 0;
@@ -1139,6 +1139,9 @@ body {
   display: grid;
   grid-template-columns: 1fr 1fr;
   border-bottom: 2px solid var(--border);
+}
+.feed-head--3 {
+  grid-template-columns: 1fr 1fr 1fr;
 }
 .feed-head-mine {
   padding: 8px 12px;
@@ -1160,6 +1163,17 @@ body {
   background: var(--surface);
   border-left: 1px solid var(--border);
 }
+.feed-head-off {
+  padding: 8px 12px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 700;
+  background: var(--navy-800);
+  color: #fff;
+  border-left: 1px solid var(--border);
+}
 
 /* 年区切り行 */
 .feed-year-sep {
@@ -1172,12 +1186,15 @@ body {
   letter-spacing: 0.05em;
 }
 
-/* 年ごとの2列グリッド */
+/* 年ごとのグリッド */
 .feed-year-row {
   display: grid;
   grid-template-columns: 1fr 1fr;
   border-bottom: 1px solid var(--border);
   min-height: 28px;
+}
+.feed-year-row--3 {
+  grid-template-columns: 1fr 1fr 1fr;
 }
 .feed-year-mine {
   padding: 8px 10px;
@@ -1194,6 +1211,17 @@ body {
   flex-direction: column;
   gap: 6px;
   min-width: 0;
+}
+.feed-year-row--3 .feed-year-fol {
+  border-right: 1px solid var(--border);
+}
+.feed-year-off {
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  background: var(--surface-2);
 }
 
 /* フィルターアイコンボタン */
@@ -1702,6 +1730,12 @@ body {
   .landing { padding: 28px 20px 40px; }
   .auth-page { padding: 16px; align-items: flex-start; padding-top: 32px; }
   .auth-card { padding: 24px 20px; }
+
+  /* フィードの3列目（公式）はモバイルでは非表示 */
+  .feed-head--3 { grid-template-columns: 1fr 1fr; }
+  .feed-year-row--3 { grid-template-columns: 1fr 1fr; }
+  .feed-head--3 .feed-head-off { display: none; }
+  .feed-year-row--3 .feed-year-off { display: none; }
 }
 
 /* ===== パスワードリセット ===== */
