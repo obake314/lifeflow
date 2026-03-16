@@ -31,6 +31,13 @@ router.post('/register', (req, res) => {
   const password_hash = bcrypt.hashSync(password, 10);
   db.prepare('INSERT INTO users (id, username, email, password_hash, birthdate) VALUES (?, ?, ?, ?, ?)').run(id, username, email, password_hash, birthdate || '');
 
+  // 生年月日が設定されていれば誕生エントリーを自動作成
+  if (birthdate) {
+    const eid = uuidv4();
+    db.prepare(`INSERT INTO timeline_entries (id, user_id, title, detail, entry_date, visibility) VALUES (?, ?, ?, ?, ?, 'public')`)
+      .run(eid, id, '誕生', '', birthdate);
+  }
+
   const token = jwt.sign({ id, username }, JWT_SECRET, { expiresIn: '30d' });
   res.json({ token, user: { id, username, email, birthdate: birthdate || '', show_age: 1 } });
 });

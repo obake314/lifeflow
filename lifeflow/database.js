@@ -77,6 +77,7 @@ db.exec(`
 try { db.exec('ALTER TABLE users ADD COLUMN is_official INTEGER DEFAULT 0'); } catch {}
 try { db.exec("ALTER TABLE users ADD COLUMN birthdate TEXT DEFAULT ''"); } catch {}
 try { db.exec('ALTER TABLE users ADD COLUMN show_age INTEGER DEFAULT 1'); } catch {}
+try { db.exec("ALTER TABLE timeline_entries ADD COLUMN end_date TEXT DEFAULT NULL"); } catch {}
 
 // ===== デフォルトタグ =====
 const seedTag = db.prepare('INSERT OR IGNORE INTO tags (name, color) VALUES (?, ?)');

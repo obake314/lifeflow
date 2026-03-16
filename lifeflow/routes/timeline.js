@@ -157,7 +157,7 @@ router.get('/entries/:id', authOptional, (req, res) => {
 
 // Create entry
 router.post('/entries', authRequired, (req, res) => {
-  const { title, detail, image_url, entry_date, visibility, tag_ids, specific_viewer_ids } = req.body;
+  const { title, detail, image_url, entry_date, end_date, visibility, tag_ids, specific_viewer_ids } = req.body;
   if (!title || !entry_date) {
     return res.status(400).json({ error: 'タイトルと日付は必須です' });
   }
@@ -168,9 +168,9 @@ router.post('/entries', authRequired, (req, res) => {
 
   const id = uuidv4();
   db.prepare(`
-    INSERT INTO timeline_entries (id, user_id, title, detail, image_url, entry_date, visibility)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
-  `).run(id, req.user.id, title, detail || '', image_url || '', entry_date, visibility || 'public');
+    INSERT INTO timeline_entries (id, user_id, title, detail, image_url, entry_date, end_date, visibility)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(id, req.user.id, title, detail || '', image_url || '', entry_date, end_date || null, visibility || 'public');
 
   // Attach tags
   if (Array.isArray(tag_ids) && tag_ids.length > 0) {
@@ -200,17 +200,18 @@ router.put('/entries/:id', authRequired, (req, res) => {
   if (!entry) return res.status(404).json({ error: 'エントリーが見つかりません' });
   if (entry.user_id !== req.user.id) return res.status(403).json({ error: '編集権限がありません' });
 
-  const { title, detail, image_url, entry_date, visibility, tag_ids, specific_viewer_ids } = req.body;
+  const { title, detail, image_url, entry_date, end_date, visibility, tag_ids, specific_viewer_ids } = req.body;
 
   db.prepare(`
     UPDATE timeline_entries
-    SET title = ?, detail = ?, image_url = ?, entry_date = ?, visibility = ?, updated_at = datetime('now')
+    SET title = ?, detail = ?, image_url = ?, entry_date = ?, end_date = ?, visibility = ?, updated_at = datetime('now')
     WHERE id = ?
   `).run(
     title || entry.title,
     detail !== undefined ? detail : entry.detail,
     image_url !== undefined ? image_url : entry.image_url,
     entry_date || entry.entry_date,
+    end_date !== undefined ? (end_date || null) : entry.end_date,
     visibility || entry.visibility,
     req.params.id
   );
