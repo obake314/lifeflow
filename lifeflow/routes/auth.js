@@ -26,12 +26,13 @@ router.post('/register', (req, res) => {
     return res.status(409).json({ error: 'ユーザー名またはメールアドレスが既に使用されています' });
   }
 
+  const { birthdate } = req.body;
   const id = uuidv4();
   const password_hash = bcrypt.hashSync(password, 10);
-  db.prepare('INSERT INTO users (id, username, email, password_hash) VALUES (?, ?, ?, ?)').run(id, username, email, password_hash);
+  db.prepare('INSERT INTO users (id, username, email, password_hash, birthdate) VALUES (?, ?, ?, ?, ?)').run(id, username, email, password_hash, birthdate || '');
 
   const token = jwt.sign({ id, username }, JWT_SECRET, { expiresIn: '30d' });
-  res.json({ token, user: { id, username, email } });
+  res.json({ token, user: { id, username, email, birthdate: birthdate || '', show_age: 1 } });
 });
 
 // Login
@@ -52,16 +53,18 @@ router.post('/login', (req, res) => {
 
 // Get current user
 router.get('/me', authRequired, (req, res) => {
-  const user = db.prepare('SELECT id, username, email, bio, avatar_url, created_at FROM users WHERE id = ?').get(req.user.id);
+  const user = db.prepare('SELECT id, username, email, bio, avatar_url, birthdate, show_age, created_at FROM users WHERE id = ?').get(req.user.id);
   if (!user) return res.status(404).json({ error: 'ユーザーが見つかりません' });
   res.json(user);
 });
 
 // Update profile
 router.put('/me', authRequired, (req, res) => {
-  const { bio, avatar_url } = req.body;
-  db.prepare('UPDATE users SET bio = ?, avatar_url = ? WHERE id = ?').run(bio || '', avatar_url || '', req.user.id);
-  const user = db.prepare('SELECT id, username, email, bio, avatar_url, created_at FROM users WHERE id = ?').get(req.user.id);
+  const { bio, avatar_url, birthdate, show_age } = req.body;
+  db.prepare('UPDATE users SET bio = ?, avatar_url = ?, birthdate = ?, show_age = ? WHERE id = ?').run(
+    bio || '', avatar_url || '', birthdate || '', show_age != null ? (show_age ? 1 : 0) : 1, req.user.id
+  );
+  const user = db.prepare('SELECT id, username, email, bio, avatar_url, birthdate, show_age, created_at FROM users WHERE id = ?').get(req.user.id);
   res.json(user);
 });
 

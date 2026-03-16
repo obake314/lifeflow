@@ -185,9 +185,11 @@ function _feedToggleFollower(userId) {
 // フォロワー史用スリムカード（ユーザー名・タイトル・画像のみ）
 function _cmpFollowerCardSlim(entry, user) {
   const cls = user.is_official ? 'cmp-entry cmp-entry--official' : 'cmp-entry';
+  const age = ageAt(user.birthdate, entry.entry_date);
+  const ageStr = (age !== null && user.show_age) ? ` <span class="entry-age" style="font-size:10px">${age}歳</span>` : '';
   return `<div class="${cls}" data-uid="${user.id}" onclick="showEntryDetail('${entry.id}')">
     <div class="cmp-entry-body">
-      <div class="cmp-entry-author">${avatar(user, 'avatar-xs')} <span>${escHtml(user.username)}</span></div>
+      <div class="cmp-entry-author">${avatar(user, 'avatar-xs')} <span>${escHtml(user.username)}</span>${ageStr}</div>
       <div class="cmp-title">${escHtml(entry.title)}</div>
     </div>
     ${entry.image_url ? `<img src="${escHtml(entry.image_url)}" class="cmp-entry-thumb" alt="">` : ''}
@@ -232,7 +234,7 @@ function _renderFeedView() {
   const rows = allYears.map(year => `
     <div class="feed-year-sep">${year}</div>
     <div class="feed-year-row">
-      <div class="feed-year-mine">${(myByYear[year]||[]).map(_cmpEntryCard).join('')}</div>
+      <div class="feed-year-mine">${(myByYear[year]||[]).map(e => _cmpEntryCard(e, me)).join('')}</div>
       <div class="feed-year-fol">${(folByYear[year]||[]).map(e => _cmpFollowerCardSlim(e, e._user)).join('')}</div>
     </div>`).join('');
 
@@ -358,9 +360,50 @@ async function renderProfile(username) {
           ).join('');
       }
     }
+
+    // 自分のプロフィールなら pending 共有リクエストを表示
+    if (isSelf) _loadPendingShares();
   } catch (e) {
     setMain(`<div class="container"><div class="empty"><div class="empty-icon"></div><p>${escHtml(e.message)}</p></div></div>`);
   }
+}
+
+async function _loadPendingShares() {
+  try {
+    const shares = await API.getPendingShares();
+    if (!shares.length) return;
+    const container = document.querySelector('.container');
+    if (!container) return;
+    const section = document.createElement('div');
+    section.className = 'pending-shares';
+    section.innerHTML = `
+      <div class="pending-shares-title">共有リクエスト（${shares.length}件）</div>
+      ${shares.map(s => `
+        <div class="pending-share-item" id="pshare-${s.id}">
+          <div class="pending-share-info">
+            <span class="pending-share-from">@${escHtml(s.from_username)}</span>
+            <span class="pending-share-entry">「${escHtml(s.title)}」(${s.entry_date?.slice(0,4)})</span>
+          </div>
+          <div class="pending-share-actions">
+            <button class="btn btn-sm btn-primary" onclick="_respondShare('${s.id}', true)">承認</button>
+            <button class="btn btn-sm btn-ghost" onclick="_respondShare('${s.id}', false)">拒否</button>
+          </div>
+        </div>`).join('')}`;
+    // タグフィルター行の前に挿入
+    const tagRow = container.querySelector('#profileTagFilterRow');
+    tagRow ? container.insertBefore(section, tagRow) : container.appendChild(section);
+  } catch {}
+}
+
+async function _respondShare(shareId, accept) {
+  try {
+    await API.respondShare(shareId, accept);
+    document.getElementById(`pshare-${shareId}`)?.remove();
+    const section = document.querySelector('.pending-shares');
+    if (section && !section.querySelector('.pending-share-item')) section.remove();
+    toast(accept ? '共有を承認しました' : '共有を拒否しました', accept ? 'success' : 'info');
+    if (accept) navigate('profile', window._currentUser.username);
+  } catch (e) { toast(e.message, 'error'); }
 }
 
 function filterProfile(tagId) {
@@ -544,13 +587,17 @@ function _cmpEntryCardWithUser(entry, user) {
   </div>`;
 }
 
-function _cmpEntryCard(entry) {
+function _cmpEntryCard(entry, user) {
   const tagsHtml = (entry.tags||[]).map(t =>
     `<span class="cmp-tag" style="background:${t.color}14;color:${t.color};border-color:${t.color}30">${escHtml(t.name)}</span>`
   ).join('');
+  const age = ageAt(user?.birthdate, entry.entry_date);
+  const ageStr = (age !== null && user?.show_age) ? `<span class="entry-age" style="font-size:10px">${age}歳</span>` : '';
+  const sharedBadge = entry.shared_from_username
+    ? `<span class="shared-badge">共有 @${escHtml(entry.shared_from_username)}</span>` : '';
   return `<div class="cmp-entry" onclick="showEntryDetail('${entry.id}')">
     <div class="cmp-entry-body">
-      <div class="cmp-date">${formatDate(entry.entry_date)}</div>
+      <div class="cmp-date">${formatDate(entry.entry_date)}${ageStr}${sharedBadge}</div>
       <div class="cmp-title">${escHtml(entry.title)}</div>
       ${entry.detail ? `<div class="cmp-detail">${escHtml(entry.detail.slice(0, 60))}${entry.detail.length > 60 ? '...' : ''}</div>` : ''}
       ${tagsHtml ? `<div class="cmp-tags">${tagsHtml}</div>` : ''}
@@ -1053,6 +1100,69 @@ function _buildWeddingHtml(profileA, entriesA, profileB, entriesB) {
   </body></html>`;
 }
 
+// ===== 共有イベント UI =====
+let _shareEntryId = null;
+let _shareSearchTimer;
+
+function openShareEntryModal(entryId) {
+  _shareEntryId = entryId;
+  closeModal();
+  const overlay = document.createElement('div');
+  overlay.className = 'modal';
+  overlay.id = 'shareEntryOverlay';
+  overlay.innerHTML = `
+    <div class="modal-box" style="max-width:420px">
+      <div class="modal-header">
+        <h3 class="modal-title">共有リクエストを送る</h3>
+        <button class="modal-close" onclick="document.getElementById('shareEntryOverlay').remove()">✕</button>
+      </div>
+      <p style="font-size:13px;color:var(--text-2);margin:0 0 12px">共有したいユーザーを検索して選んでください。承認されるとそのユーザーのタイムラインにも表示されます。</p>
+      <div class="search-input-wrap" style="margin-bottom:10px">
+        <input type="search" id="shareUserSearch" class="search-input" style="border-radius:8px"
+          placeholder="ユーザー名で検索..."
+          oninput="_debounceShareSearch()" autocomplete="off">
+      </div>
+      <div id="shareUserResults" style="max-height:240px;overflow-y:auto"></div>
+    </div>`;
+  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+  document.body.appendChild(overlay);
+}
+
+function _debounceShareSearch() {
+  clearTimeout(_shareSearchTimer);
+  _shareSearchTimer = setTimeout(_execShareSearch, 280);
+}
+async function _execShareSearch() {
+  const q  = document.getElementById('shareUserSearch')?.value.trim();
+  const el = document.getElementById('shareUserResults');
+  if (!el) return;
+  if (!q) { el.innerHTML = ''; return; }
+  el.innerHTML = '<div style="padding:10px;color:#999;font-size:13px">検索中...</div>';
+  try {
+    const users = await API.searchUsers(q);
+    const me = window._currentUser?.username;
+    const list = users.filter(u => u.username !== me);
+    if (!list.length) { el.innerHTML = '<div style="padding:10px;color:#999;font-size:13px">見つかりませんでした</div>'; return; }
+    el.innerHTML = list.map(u => `
+      <button class="export-template-card" style="margin-bottom:6px" onclick="_doShareEntry('${escHtml(u.username)}')">
+        <div class="export-template-icon" style="font-size:15px">${(u.username||'?')[0].toUpperCase()}</div>
+        <div class="export-template-info">
+          <div class="export-template-title">${escHtml(u.username)}</div>
+          ${u.bio ? `<div class="export-template-desc">${escHtml(u.bio)}</div>` : ''}
+        </div>
+      </button>`).join('');
+  } catch { el.innerHTML = '<div style="padding:10px;color:#c00;font-size:13px">取得に失敗しました</div>'; }
+}
+
+async function _doShareEntry(username) {
+  if (!_shareEntryId) return;
+  try {
+    await API.shareEntry(_shareEntryId, username);
+    document.getElementById('shareEntryOverlay')?.remove();
+    toast(`@${username} に共有リクエストを送りました`, 'success');
+  } catch (e) { toast(e.message, 'error'); }
+}
+
 async function renderFollowList(username, type) {
   setMain(`<div class="container">${loading()}</div>`);
   try {
@@ -1134,6 +1244,10 @@ function renderRegister() {
       <input type="email" id="regEmail" placeholder="you@example.com" autocomplete="email">
     </div>
     <div class="form-group">
+      <label>生年月日（任意）</label>
+      <input type="date" id="regBirthdate">
+    </div>
+    <div class="form-group">
       <label>パスワード（6文字以上）</label>
       <input type="password" id="regPass" placeholder="パスワード" autocomplete="new-password"
              onkeydown="if(event.key==='Enter')doRegister()">
@@ -1147,12 +1261,13 @@ function renderRegister() {
 }
 
 async function doRegister() {
-  const username = document.getElementById('regUser')?.value.trim();
-  const email    = document.getElementById('regEmail')?.value.trim();
-  const password = document.getElementById('regPass')?.value;
-  const errEl    = document.getElementById('regError');
+  const username  = document.getElementById('regUser')?.value.trim();
+  const email     = document.getElementById('regEmail')?.value.trim();
+  const password  = document.getElementById('regPass')?.value;
+  const birthdate = document.getElementById('regBirthdate')?.value || '';
+  const errEl     = document.getElementById('regError');
   try {
-    const res = await API.register({ username, email, password });
+    const res = await API.register({ username, email, password, birthdate });
     localStorage.setItem('lf_token', res.token);
     window._currentUser = res.user;
     renderNav();
@@ -1267,6 +1382,16 @@ function openProfileEdit() {
       <input type="hidden" id="pe-avatar-url" value="${escHtml(avatarSrc)}">
     </div>
     <div class="form-group">
+      <label>生年月日</label>
+      <input type="date" id="pe-birthdate" value="${escHtml(u?.birthdate || '')}">
+    </div>
+    <div class="form-group">
+      <label class="toggle-label">
+        <input type="checkbox" id="pe-show-age" ${(u?.show_age ?? 1) ? 'checked' : ''}>
+        エントリーに年齢を表示する
+      </label>
+    </div>
+    <div class="form-group">
       <label>自己紹介</label>
       <textarea id="pe-bio" placeholder="自己紹介を入力...">${escHtml(u?.bio || '')}</textarea>
     </div>
@@ -1302,8 +1427,10 @@ async function handleAvatarFileChange(input) {
 async function saveProfile() {
   const bio        = document.getElementById('pe-bio')?.value.trim();
   const avatar_url = document.getElementById('pe-avatar-url')?.value.trim();
+  const birthdate  = document.getElementById('pe-birthdate')?.value || '';
+  const show_age   = document.getElementById('pe-show-age')?.checked ? 1 : 0;
   try {
-    const updated = await API.updateProfile({ bio, avatar_url });
+    const updated = await API.updateProfile({ bio, avatar_url, birthdate, show_age });
     window._currentUser = { ...window._currentUser, ...updated };
     renderNav();
     closeModal();

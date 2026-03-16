@@ -1,5 +1,14 @@
 // Shared UI components
 
+function ageAt(birthdate, eventDate) {
+  if (!birthdate || !eventDate) return null;
+  const b = new Date(birthdate), e = new Date(eventDate);
+  if (isNaN(b) || isNaN(e) || b > e) return null;
+  let age = e.getFullYear() - b.getFullYear();
+  if (e.getMonth() < b.getMonth() || (e.getMonth() === b.getMonth() && e.getDate() < b.getDate())) age--;
+  return age >= 0 ? age : null;
+}
+
 const VISIBILITY_LABELS = {
   public:    '公開',
   users:     'ユーザーのみ',
@@ -28,14 +37,19 @@ function visibilityBadge(v) {
 
 function entryCard(entry, isMine = false) {
   const dateStr  = formatDate(entry.entry_date);
+  const age      = ageAt(entry.owner_birthdate, entry.entry_date);
+  const ageStr   = (age !== null && entry.owner_show_age) ? `<span class="entry-age">${age}歳</span>` : '';
   const tagsHtml = (entry.tags || []).map(tagHtml).join('');
+  const sharedBadge = entry.shared_from_username
+    ? `<span class="shared-badge">共有 @${escHtml(entry.shared_from_username)}</span>` : '';
 
   return `<div class="entry-card" data-id="${entry.id}" onclick="showEntryDetail('${entry.id}')">
     ${entry.image_url ? `<img class="entry-image" src="${escHtml(entry.image_url)}" alt="" loading="lazy">` : ''}
     <div class="entry-body">
       <div class="entry-meta">
-        <span class="entry-date">${dateStr}</span>
+        <span class="entry-date">${dateStr}</span>${ageStr}
         ${visibilityBadge(entry.visibility)}
+        ${sharedBadge}
       </div>
       <div class="entry-title">${escHtml(entry.title)}</div>
       ${entry.detail ? `<div class="entry-detail">${escHtml(entry.detail)}</div>` : ''}
@@ -300,9 +314,10 @@ async function showEntryDetail(id) {
       <h3 style="font-size:20px;font-weight:700;letter-spacing:-0.02em;color:var(--navy-900);margin-bottom:12px">${escHtml(entry.title)}</h3>
       ${entry.detail ? `<p style="color:var(--text-2);line-height:1.7;font-size:14px;white-space:pre-wrap">${escHtml(entry.detail)}</p>` : ''}
       <div class="tags" style="margin-top:12px">${(entry.tags||[]).map(tagHtml).join('')}</div>
-      ${isMine ? `<div class="divider"></div><div style="display:flex;gap:8px">
+      ${isMine ? `<div class="divider"></div><div style="display:flex;gap:8px;flex-wrap:wrap">
         <button class="btn btn-secondary btn-sm" onclick="closeModal();editEntry('${entry.id}')">編集</button>
         <button class="btn btn-danger btn-sm" onclick="closeModal();deleteEntry('${entry.id}')">削除</button>
+        <button class="btn btn-ghost btn-sm" style="margin-left:auto" onclick="openShareEntryModal('${entry.id}')">共有リクエストを送る</button>
       </div>` : ''}
     `);
   } catch (e) { toast(e.message, 'error'); }
